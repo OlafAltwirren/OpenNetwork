@@ -23,11 +23,13 @@ function driver.start(eventHandler)
                 eventHandler.newHost(nodes[interface].name, origin)
                 component.invoke(interface, "send", "I")
                 eventHandler.debug("REPL:",interface,origin)
-            elseif data:sub(1,1) == "I"then
+            elseif data:sub(1,1) == "I" then
                 eventHandler.newHost(nodes[interface].name, origin)
-            elseif data:sub(1,1) == "Q"then
+            elseif data:sub(1,1) == "Q" then
                 eventHandler.delHost(nodes[interface].name, origin)
-            elseif data:sub(1,1) == "D"then
+            elseif data:sub(1,1) == "D" then
+                eventHandler.recvData(data:sub(2), nodes[interface].name, origin)
+            elseif data:sub(1,1) == "B" then
                 eventHandler.recvData(data:sub(2), nodes[interface].name, origin)
             end
             
