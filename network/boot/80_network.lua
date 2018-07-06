@@ -36,27 +36,27 @@ local function start()
     nodes = {}
     
     --DRIVER INIT
-    --print("Loading drivers")
+    print("Loading drivers")
 
     local drivers = {}
 
     for file in filesystem.list("/lib/network") do
         
-        --print("Loading driver:", file)
+        print("Loading driver:", file)
         drivers[file] = {driver = loadfile("/lib/network/"..file)()}
         
         local eventHandler = {}--EVENT HANDLERS FOR DRIVER EVENTS
-        --eventHandler.debug = print
-        eventHandler.debug = function()end
+        eventHandler.debug = print
+        --eventHandler.debug = function()end
         
         function eventHandler.newHost(node, address)--New interface in net node
-            --print("New host: ",node, address)
+            print("New host: ",node, address)
             accessibleHosts[address] = {driver = drivers[file], node = node}
             nodes[node].hosts[address] = address--mark host in node
         end
         
         function eventHandler.newInterface(interface, selfAddr, linkName)--New node
-            --print("New interface: ",interface, selfaddr)
+            print("New interface: ",interface, selfaddr)
             nodes[interface] = {hosts={}, driver = drivers[file], selfAddr = selfAddr, linkName = linkName}
         end
         
@@ -79,7 +79,7 @@ local function start()
     end
     
     _rawSend = function(addr, node, data)
-        --print("TrySend:",node,addr,":",data)
+        print("TrySend:",node,addr,":",data)
         if accessibleHosts[addr] then
             accessibleHosts[addr].driver.driver.send(accessibleHosts[addr].driver.handle, node, addr, data)
         end
@@ -246,7 +246,7 @@ startNetwork  = function()
     end
     
     dataHandler = function(data, node, origin)
-        --print("DATA:", data, node, origin)
+        print("DATA:", data, node, origin)
         
         if data:sub(1,1) == "D" then --Direct data
             onRecv(origin, data:sub(3))
