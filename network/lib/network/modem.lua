@@ -5,6 +5,7 @@ Hello/broadcast(sent by new host in node):  H (modem addersses are in event)
 Hi/direct(sent by hosts to new host):       I (^)
 Host quitting/broadcast                     Q (^)
 Data/direct                                 D[data] (origin from event)
+Date/broadcast                              B[data] (origin from event)
 ]]
 local component = require "component"
 local event = require "event"
@@ -30,11 +31,13 @@ function driver.start(eventHandler)
                 eventHandler.newHost(nodes[interface].name, origin)
                 component.invoke(interface, "send", origin, 1, "I")
                 eventHandler.debug("REPL:",interface,origin)
-            elseif data:sub(1,1) == "I"then
+            elseif data:sub(1,1) == "I" then
                 eventHandler.newHost(nodes[interface].name, origin)
-            elseif data:sub(1,1) == "Q"then
+            elseif data:sub(1,1) == "Q" then
                 eventHandler.delHost(nodes[interface].name, origin)
-            elseif data:sub(1,1) == "D"then
+            elseif data:sub(1,1) == "D" then
+                eventHandler.recvData(data:sub(2), nodes[interface].name, origin)
+            elseif data:sub(1,1) == "B" then
                 eventHandler.recvData(data:sub(2), nodes[interface].name, origin)
             end
             
@@ -65,6 +68,10 @@ function driver.send(handle, interface, destination, data)
             nodes[interface].pktIn = nodes[interface].pktIn + 1
             nodes[interface].bytesIn = nodes[interface].bytesIn + data:len()
             eventHnd.recvData(data, interface, destination)
+        elseif "*" == destination then
+            nodes[interface].pktOut = nodes[interface].pktOut + 1
+            nodes[interface].bytesOut = nodes[interface].bytesOut + 1 + data:len()
+            component.invoke(nodes[interface].modem, "broadcast", 1, "B"..data)
         else
             nodes[interface].pktOut = nodes[interface].pktOut + 1
             nodes[interface].bytesOut = nodes[interface].bytesOut + 1 + data:len()
