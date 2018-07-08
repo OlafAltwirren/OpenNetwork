@@ -27,7 +27,7 @@ end
 
 function logging.log(message)
 
-    logging.core.logFile:write(os.time..", "..message.."\n")
+    logging.core.logFile:write(message.."\n")
     logging.core.logFile:flush()
 end
 

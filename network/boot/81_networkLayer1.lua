@@ -1,7 +1,7 @@
-local event = require "event"
-local computer = require "computer"
-local libLayer1network = require "libLayer1network"
-local logger = require "logging"
+local event = require("event")
+local computer = require("computer")
+local libLayer1network = require("libLayer1network")
+local logger = require("logging").getLogger("network")
 
 ----------------------- new
 
