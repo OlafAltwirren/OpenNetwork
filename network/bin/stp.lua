@@ -6,7 +6,7 @@
 -- To change this template use File | Settings | File Templates.
 --
 
-local libLayer1network = require "libLayer1network"
+local libLayer1network = require("libLayer1network")
 
 local function fillText(text, n)
     for k = 1, n - #text do
