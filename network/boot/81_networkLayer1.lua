@@ -17,7 +17,7 @@ local topologyTable = {}
 local topologyTableUpdated = false
 
 -- Directly accessible. Send Frame via "sourceUUID" to "destinationUUID"
-topologyTable["destinationUUID"] = {
+--[[topologyTable["destinationUUID"] = {
     mode = "direct",
     via = "sourceUUID",
     lastSeen = os.time(),
@@ -33,6 +33,7 @@ topologyTable["destinationUUID2"] = {
     lastSeen = os.time(),
     pathCost = 429
 }
+]]
 
 
 -- On new data for "destinationUUIDx" check:
@@ -96,7 +97,7 @@ local function networkLayer1Stack()
             type:string - the type of connection this interface represents, like Ethernet, Tunnel
           ]]
         function eventHandler.interfaceUp(name, sourceUUID, type)
-            logger.log("New interface: "..name..", "..sourceUUID..", "..type)
+            logger.log("New interface: " .. name .. ", " .. sourceUUID .. ", " .. type)
             interfaces[sourceUUID] = {
                 type = type,
                 name = name,
@@ -171,7 +172,7 @@ local function networkLayer1Stack()
                     topologyTable[destinationUUID].lastSeen = os.time()
                     topologyTable[destinationUUID].pathCost = pathCost + distance
 
-                    logger.log("updating new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
+                    logger.log("Apdating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
 
                     topologyTableUpdated = true
                 end
@@ -185,7 +186,7 @@ local function networkLayer1Stack()
                     pathCost = pathCost + distance
                 }
 
-                logger.log("Adding new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
+                logger.log("Adding new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
 
                 topologyTableUpdated = true
             end
@@ -203,7 +204,7 @@ local function networkLayer1Stack()
                 local args = { ... }
                 local res = { pcall(function() listener(table.unpack(args)) end) }
                 if not res[1] then
-                    logger.log("ERROR IN NET EVENTHANDLER[" .. file .. "]:"..res[2])
+                    logger.log("ERROR IN NET EVENTHANDLER[" .. file .. "]:" .. res[2])
                 end
                 return table.unpack(res, 2)
             end)
@@ -222,12 +223,22 @@ local function networkLayer1Stack()
     end
 
     logger.log("Layer 1 Networking stack initiated.")
-    os.sleep(10)
     -- startNetwork()    
     computer.pushSignal("network_ready") -- maybe L1_ready
 
     -- TODO start timed publish of updated topology
+    event.timer(30, function(number)
+        if topologyTableUpdated then
+            topologyTableUpdated = false
 
+            for interfaceUUID in pairs(interfaces) do
+                for destinationUUID in pairs(topologyTable) do
+                    logger.log("Sending STTI update on " .. interfaceUUID .. " for " .. destinationUUID)
+                    interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
+                end
+            end
+        end
+    end)
 
     -- Register L1 driver callbacks
     libLayer1network.core.setCallback("getTopologyTable", getTopologyTable)

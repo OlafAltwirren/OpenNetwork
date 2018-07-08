@@ -91,6 +91,30 @@ end
 --[[
     TODO
  ]]
+local function decodeSTTI(data)
+    --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type]
+    local pathCost = data:byte(2)
+    local destinationUUID, destinationUUIDlen = readSizeStr(data, 3)
+    local viaUUID, viaUUIDlen = readSizeStr(data, 3+destinationUUIDlen)
+    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 3+destinationUUIDlen+viaUUIDlen)
+    local type, typeLen = readSizeStr(data, 3+destinationUUIDlen+viaUUIDlen+gatewayUUIDlen)
+
+    return destinationUUID, pathCost, viaUUID, gatewayUUID, type
+end
+
+--[[
+    TODO
+ ]]
+local function encodeSTTI(destinationUUID, pathCost, viaUUID, gatewayUUID, type)
+    --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type]
+    local composedData = toByte(pathCost)..toByte(destinationUUID:len())..destinationUUID..toByte(viaUUID:len())..viaUUID..toByte(gatewayUUID:len())..gatewayUUID..toByte(type:len())..type
+
+    return composedData
+end
+
+--[[
+    TODO
+ ]]
 local function decodePassThroughFrame(data)
     --[ttl-byte][originalSourceUUID.len-byte][originalSourceUUID][destinationUUID.len-byte][destinationUUID]passThroughData
 
@@ -191,7 +215,17 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from "..sourceUUID..", distance "..distance)
 
-        -- TODO
+        local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType = decodeSTTI(data)
+
+        local pathCost
+        if (distance > 0) then
+            -- wireless message
+            pathCost = 10 + distance
+        else
+            -- wired message
+            pathCost = 5
+        end
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType) -- add 10 to path cost for
 
     elseif data:sub(1,1) == "L" then
         -- Handle L/broadcast -> Leave message of an interface from the topology {sourceInterfaceUUID}
@@ -236,6 +270,30 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         eventHnd.recvData(data:sub(2), interfaceUUID, sourceUUID)
     end
 
+end
+
+--[[
+    Send STTI with the given topologyInformation to all neighbors
+
+    interfaceUUID:string
+    destinationUUID:string
+    topologyInformation:struct
+       mode:string
+       via:string
+       gateway:string
+       lastSeen:int
+       pathCost:int
+ ]]
+function driver.sendSTTI(interfaceUUID, destinationUUID, topologyInformation)
+
+    -- encode STTI frame
+    local data = encodeSTTI(destinationUUID, topologyInformation.pathCost, topologyInformation.via, topologyInformation.gateway, topologyInformation.mode)
+
+    -- Update statistics
+    interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
+    interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
+    -- Send data to destination via source
+    component.invoke(interfaceUUID, "broadcast", vLanId, "T"..data)
 end
 
 --[[
