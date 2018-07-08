@@ -186,7 +186,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, nil, interfaceUUID, "direct")
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct")
     elseif data:sub(1,1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from "..sourceUUID..", distance "..distance)

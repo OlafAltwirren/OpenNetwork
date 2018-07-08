@@ -17,7 +17,7 @@ end
 
 local maxlen = {8, 5}
 
-for destinationUUID, topologyEntry in ipairs(libLayer1network.stp.getTopologyTable()) do
+for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTable()) do
     print(destinationUUID..","..topologyEntry.pathCost..", "..topologyEntry.via.."->"..topologyEntry.gateway..", "..topologyEntry.mode.." @"..topologyEntry.lastSeen)
 
 end

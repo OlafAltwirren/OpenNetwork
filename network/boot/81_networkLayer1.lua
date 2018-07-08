@@ -22,7 +22,7 @@ topologyTable["destinationUUID"] = {
     via = "sourceUUID",
     lastSeen = os.time(),
     pathCost = 10,
-    gateway = nil
+    gateway = ""
 }
 
 -- Accessible via gateway. Send Frame via "sourceUUID" to "gatewayUUID" as routed Frame with destination "destinationUUID2"
