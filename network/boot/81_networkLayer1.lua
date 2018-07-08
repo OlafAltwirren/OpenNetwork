@@ -103,6 +103,16 @@ local function networkLayer1Stack()
                 name = name,
                 driver = drivers[file]
             }
+
+            -- Add self reference to topology. this essentially is a loopback interface
+            topologyTable[sourceUUID] = {
+                mode = "direct",
+                via = sourceUUID,
+                gateway = "",
+                lastSeen = os.time(),   -- TODO needs to always be valid
+                pathCost = 0
+            }
+
         end
 
         --[[
