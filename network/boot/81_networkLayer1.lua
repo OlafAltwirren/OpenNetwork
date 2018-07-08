@@ -1,7 +1,7 @@
 local event = require "event"
 local computer = require "computer"
 local libLayer1network = require "libLayer1network"
-
+local logger = require "logging"
 
 ----------------------- new
 
@@ -61,7 +61,7 @@ local initiated = false
 
 local function networkLayer1Stack()
     if initiated then
-        print "Layer 1 Stack already initiated."
+        logger.log("Layer 1 Stack already initiated.")
         return
     end
     initiated = true
@@ -70,14 +70,14 @@ local function networkLayer1Stack()
     local filesystem = require "filesystem"
 
     --DRIVER INIT
-    print("Loading drivers...")
+    logger.log("Loading drivers...")
 
     -- Contains the library collection of the available drivers by name. drivers.[name]...
     local drivers = {}
 
     for file in filesystem.list("/lib/network") do
 
-        print("Loading driver:", file)
+        logger.log("Loading driver:", file)
         drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
 
         local eventHandler = {} -- Event Handers for the drivers to enable uplayer communication
@@ -92,7 +92,7 @@ local function networkLayer1Stack()
             type:string - the type of connection this interface represents, like Ethernet, Tunnel
           ]]
         function eventHandler.interfaceUp(name, sourceUUID, type)
-            print("New interface: ", name, sourceUUID, type)
+            logger.log("New interface: ", name, sourceUUID, type)
             interfaces[sourceUUID] = {
                 type = type,
                 name = name,
@@ -117,7 +117,7 @@ local function networkLayer1Stack()
             sourceUUID:string - the original senter interfaceUUID that sent the data.
           ]]
         function eventHandler.recvData(data, interfaceUUID, sourceUUID)
-            print("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
+            logger.log("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
             -- TODO
         end
 
@@ -167,7 +167,7 @@ local function networkLayer1Stack()
                     topologyTable[destinationUUID].lastSeen = os.time
                     topologyTable[destinationUUID].pathCost = pathCost + distance
 
-                    print("updating new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
+                    logger.log("updating new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
 
                     topologyTableUpdated = true
                 end
@@ -181,7 +181,7 @@ local function networkLayer1Stack()
                     pathCost = pathCost + distance
                 }
 
-                print("Adding new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
+                logger.log("Adding new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
 
                 topologyTableUpdated = true
             end
@@ -199,7 +199,7 @@ local function networkLayer1Stack()
                 local args = { ... }
                 local res = { pcall(function() listener(table.unpack(args)) end) }
                 if not res[1] then
-                    print("ERROR IN NET EVENTHANDLER[" .. file .. "]:", res[2])
+                    logger.log("ERROR IN NET EVENTHANDLER[" .. file .. "]:", res[2])
                 end
                 return table.unpack(res, 2)
             end)
@@ -217,7 +217,7 @@ local function networkLayer1Stack()
         end
     end
 
-    print("Layer 1 Networking stack initiated.")
+    logger.log("Layer 1 Networking stack initiated.")
     os.sleep(10)
     -- startNetwork()    
     computer.pushSignal("network_ready") -- maybe L1_ready

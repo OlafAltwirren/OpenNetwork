@@ -21,8 +21,10 @@ function logging.core.init()
 end
 
 function logging.log(message)
-    logging.core.logFile:write(message)
+    logging.core.logFile:write(os.time..", "..message.."\n")
     logging.core.logFile:flush()
 end
+
+logging.core.init()
 
 return logging
