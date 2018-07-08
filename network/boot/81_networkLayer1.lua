@@ -1,18 +1,18 @@
 local event = require "event"
 local computer = require "computer"
-local libLayer1network = require "libLayer1network"
+local libLayer1network = require "libLayer1network.lua"
 
 
 ----------------------- new
 
-local interfaces
+local interfaces = {}
 
 interfaces["sourceUUID"].type = "Ethenet"
 interfaces["sourceUUID"].name = "eth0"
 interfaces["sourceUUID"].driver = nil -- drivers[file]
 
 
-local topologyTable
+local topologyTable = {}
 local topologyTableUpdated = false
 
 -- Directly accessible. Send Frame via "sourceUUID" to "destinationUUID"
