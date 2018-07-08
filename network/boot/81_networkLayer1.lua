@@ -20,7 +20,7 @@ local topologyTableUpdated = false
 topologyTable["destinationUUID"] = {
     mode = "direct",
     via = "sourceUUID",
-    lastSeen = 224898312839,
+    lastSeen = os.time(),
     pathCost = 10,
     gateway = nil
 }
@@ -30,7 +30,7 @@ topologyTable["destinationUUID2"] = {
     mode = "bridged",
     via = "sourceUUID",
     gateway = "gatewayUUID",
-    lastSeen = 31118312839,
+    lastSeen = os.time(),
     pathCost = 429
 }
 
@@ -168,7 +168,7 @@ local function networkLayer1Stack()
                     topologyTable[destinationUUID].mode = type
                     topologyTable[destinationUUID].via = receiverInterfaceUUID
                     topologyTable[destinationUUID].gateway = senderInterfaceUUID
-                    topologyTable[destinationUUID].lastSeen = os.time
+                    topologyTable[destinationUUID].lastSeen = os.time()
                     topologyTable[destinationUUID].pathCost = pathCost + distance
 
                     logger.log("updating new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
@@ -181,7 +181,7 @@ local function networkLayer1Stack()
                     mode = type,
                     via = receiverInterfaceUUID,
                     gateway = senderInterfaceUUID,
-                    lastSeen = os.time,
+                    lastSeen = os.time(),
                     pathCost = pathCost + distance
                 }
 
