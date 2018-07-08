@@ -61,6 +61,7 @@ local initiated = false
 
 local function networkLayer1Stack()
     if initiated then
+        print "Layer 1 Stack already initiated."
         return
     end
     initiated = true
@@ -217,6 +218,7 @@ local function networkLayer1Stack()
     end
 
     print("Layer 1 Networking stack initiated.")
+    os.sleep(10)
     -- startNetwork()    
     computer.pushSignal("network_ready") -- maybe L1_ready
 
