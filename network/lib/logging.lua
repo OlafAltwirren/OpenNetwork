@@ -20,11 +20,15 @@ function logging.core.init()
     logging.core.logFile = io.open("/log.txt", "a")
 end
 
+function logging.getLogger(namedLogger)
+    logging.core.init()
+    return logging
+end
+
 function logging.log(message)
+
     logging.core.logFile:write(os.time..", "..message.."\n")
     logging.core.logFile:flush()
 end
-
-logging.core.init()
 
 return logging
