@@ -21,11 +21,13 @@ local driver = {}
 local interfaces = {}
 
 -- Structure
-interfaces["interfaceUUID"].name = "ethX"
-interfaces["interfaceUUID"].pktIn = 0
-interfaces["interfaceUUID"].pktOut = 0
-interfaces["interfaceUUID"].bytesIn = 0
-interfaces["interfaceUUID"].bytesOut = 0
+interfaces["interfaceUUID"] = {
+    name = "ethX",
+    pktIn = 0,
+    pktOut = 0,
+    bytesIn = 0,
+    bytesOut = 0
+}
 
 local eventHnd
 

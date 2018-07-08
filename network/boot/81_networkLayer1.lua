@@ -17,19 +17,23 @@ local topologyTable = {}
 local topologyTableUpdated = false
 
 -- Directly accessible. Send Frame via "sourceUUID" to "destinationUUID"
-topologyTable["destinationUUID"] = {}
-topologyTable["destinationUUID"].mode = "direct"
-topologyTable["destinationUUID"].via = "sourceUUID"
-topologyTable["destinationUUID"].lastSeen = 224898312839
-topologyTable["destinationUUID"].pathCost = 10
+topologyTable["destinationUUID"] = {
+    mode = "direct",
+    via = "sourceUUID",
+    lastSeen = 224898312839,
+    pathCost = 10,
+    gateway = nil
+}
 
 -- Accessible via gateway. Send Frame via "sourceUUID" to "gatewayUUID" as routed Frame with destination "destinationUUID2"
-topologyTable["destinationUUID2"] = {}
-topologyTable["destinationUUID2"].mode = "bridged"
-topologyTable["destinationUUID2"].via = "sourceUUID"
-topologyTable["destinationUUID2"].gateway = "gatewayUUID"
-topologyTable["destinationUUID2"].lastSeen = 31118312839
-topologyTable["destinationUUID2"].pathCost = 429
+topologyTable["destinationUUID2"] = {
+    mode = "bridged",
+    via = "sourceUUID",
+    gateway = "gatewayUUID",
+    lastSeen = 31118312839,
+    pathCost = 429
+}
+
 
 -- On new data for "destinationUUIDx" check:
 --  first: if old is too old, remove
@@ -77,11 +81,11 @@ local function networkLayer1Stack()
 
     for file in filesystem.list("/lib/network") do
 
-        logger.log("Loading driver:", file)
+        logger.log("Loading driver:" .. file)
         drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
 
         local eventHandler = {} -- Event Handers for the drivers to enable uplayer communication
-        eventHandler.debug = print -- DEBUG ENABLED
+        eventHandler.debug = logger.log -- DEBUG ENABLED
         --eventHandler.debug = function()end
 
         --[[
