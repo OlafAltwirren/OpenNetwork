@@ -1,12 +1,13 @@
 local event = require "event"
 local computer = require "computer"
-local libLayer1network = require "libLayer1network.lua"
+local libLayer1network = require "libLayer1network"
 
 
 ----------------------- new
 
 local interfaces = {}
 
+interfaces["sourceUUID"] = {}
 interfaces["sourceUUID"].type = "Ethenet"
 interfaces["sourceUUID"].name = "eth0"
 interfaces["sourceUUID"].driver = nil -- drivers[file]
@@ -16,12 +17,14 @@ local topologyTable = {}
 local topologyTableUpdated = false
 
 -- Directly accessible. Send Frame via "sourceUUID" to "destinationUUID"
+topologyTable["destinationUUID"] = {}
 topologyTable["destinationUUID"].mode = "direct"
 topologyTable["destinationUUID"].via = "sourceUUID"
 topologyTable["destinationUUID"].lastSeen = 224898312839
 topologyTable["destinationUUID"].pathCost = 10
 
 -- Accessible via gateway. Send Frame via "sourceUUID" to "gatewayUUID" as routed Frame with destination "destinationUUID2"
+topologyTable["destinationUUID2"] = {}
 topologyTable["destinationUUID2"].mode = "bridged"
 topologyTable["destinationUUID2"].via = "sourceUUID"
 topologyTable["destinationUUID2"].gateway = "gatewayUUID"
@@ -37,20 +40,12 @@ topologyTable["destinationUUID2"].pathCost = 429
 -----------------------
 
 -- Method for sending data over the node
-local _rawSend
 
 local getInterfaceInfo
 
 local startNetwork
 
-local dataHandler --Layer 2 data handler
-
-local accessibleHosts
-local nodes
-
-
 ------------------------
-
 local function getTopologyTable()
     return topologyTable
 end
@@ -60,7 +55,7 @@ local function getInterfaces()
 end
 
 ------------------------
---Layer 1
+-- Layer 1
 
 local initiated = false
 
@@ -69,10 +64,10 @@ local function networkLayer1Stack()
         return
     end
     initiated = true
-    
+
     local computer = require "computer"
     local filesystem = require "filesystem"
-        
+
     --DRIVER INIT
     print("Loading drivers...")
 
@@ -80,12 +75,12 @@ local function networkLayer1Stack()
     local drivers = {}
 
     for file in filesystem.list("/lib/network") do
-        
+
         print("Loading driver:", file)
-        drivers[file] = {driver = loadfile("/lib/network/"..file)()}
-        
+        drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
+
         local eventHandler = {} -- Event Handers for the drivers to enable uplayer communication
-        eventHandler.debug = print  -- DEBUG ENABLED
+        eventHandler.debug = print -- DEBUG ENABLED
         --eventHandler.debug = function()end
 
         --[[
@@ -96,12 +91,14 @@ local function networkLayer1Stack()
             type:string - the type of connection this interface represents, like Ethernet, Tunnel
           ]]
         function eventHandler.interfaceUp(name, sourceUUID, type)
-            print("New interface: ", name, sourceUUID, type)            
-            interfaces[sourceUUID].type = type
-            interfaces[sourceUUID].name = name
-            interfaces[sourceUUID].driver = drivers[file]            
+            print("New interface: ", name, sourceUUID, type)
+            interfaces[sourceUUID] = {
+                type = type,
+                name = name,
+                driver = drivers[file]
+            }
         end
-        
+
         --[[
             For the driver to unregister a previously registered interface
 
@@ -110,7 +107,7 @@ local function networkLayer1Stack()
         function eventHandler.interfaceDown(sourceUUID)
             -- TODO cleanup
         end
-        
+
         --[[
             For the driver to register received data on a node. This is to be passed on to higher network layers.
 
@@ -119,7 +116,7 @@ local function networkLayer1Stack()
             sourceUUID:string - the original senter interfaceUUID that sent the data.
           ]]
         function eventHandler.recvData(data, interfaceUUID, sourceUUID)
-            print("DEBUG: Received data on "..interfaceUUID.." from "..sourceUUID)
+            print("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
             -- TODO
         end
 
@@ -134,7 +131,6 @@ local function networkLayer1Stack()
             -- TODO
             -- Remove destination as partingInterfaceUUID from topology
             -- Announce new topology
-
         end
 
         --[[
@@ -170,24 +166,26 @@ local function networkLayer1Stack()
                     topologyTable[destinationUUID].lastSeen = os.time
                     topologyTable[destinationUUID].pathCost = pathCost + distance
 
-                    print("updating new STTI: "..destinationUUID..", "..pathCost..", "..viaUUID.."->"..gatewayUUID..", "..type..". Old path was"..oldPathCost)
+                    print("updating new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
 
                     topologyTableUpdated = true
                 end
             else
                 -- Add the destination to the table
-                topologyTable[destinationUUID].mode = type
-                topologyTable[destinationUUID].via = receiverInterfaceUUID
-                topologyTable[destinationUUID].gateway = senderInterfaceUUID
-                topologyTable[destinationUUID].lastSeen = os.time
-                topologyTable[destinationUUID].pathCost = pathCost + distance
+                topologyTable[destinationUUID] = {
+                    mode = type,
+                    via = receiverInterfaceUUID,
+                    gateway = senderInterfaceUUID,
+                    lastSeen = os.time,
+                    pathCost = pathCost + distance
+                }
 
-                print("Adding new STTI: "..destinationUUID..", "..pathCost..", "..viaUUID.."->"..gatewayUUID..", "..type)
+                print("Adding new STTI: " .. destinationUUID .. ", " .. pathCost .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
 
                 topologyTableUpdated = true
             end
         end
-        
+
         --[[
             For the driver to register a listener Callback listener registration.
 
@@ -197,33 +195,27 @@ local function networkLayer1Stack()
           ]]
         function eventHandler.setListener(evt, listener)
             return event.listen(evt, function(...)
-                local args = {...}
-                local res = {pcall(function()listener(table.unpack(args))end)}
+                local args = { ... }
+                local res = { pcall(function() listener(table.unpack(args)) end) }
                 if not res[1] then
-                    print("ERROR IN NET EVENTHANDLER["..file.."]:",res[2])
+                    print("ERROR IN NET EVENTHANDLER[" .. file .. "]:", res[2])
                 end
-                return table.unpack(res,2)
+                return table.unpack(res, 2)
             end)
         end
-        
+
         -- Start the driver and store the driver's event handler
         drivers[file].handle = drivers[file].driver.start(eventHandler)
     end
-    
+
     -- Send data raw
-    _rawSend = function(addr, node, data)
-        print("TrySend:",node,addr,":",data)
-        if accessibleHosts[addr] then
-            accessibleHosts[addr].driver.driver.send(accessibleHosts[addr].driver.handle, node, addr, data)
-        end
-    end
-    
+
     getInterfaceInfo = function(interfaceUUID)
-        if interfaces[interfaceUUID] then        
-            return interfaces[interfaceUUID].driver.info(interface)
+        if interfaces[interfaceUUID] then
+            return interfaces[interfaceUUID].driver.info(interfaceUUID)
         end
     end
-    
+
     print("Layer 1 Networking stack initiated.")
     -- startNetwork()    
     computer.pushSignal("network_ready") -- maybe L1_ready
