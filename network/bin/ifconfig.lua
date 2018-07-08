@@ -6,11 +6,11 @@ local function align(txt)return txt .. ("        "):sub(#txt+1)end
 
 if #args < 1 then
     print("Network interfaces:")
-    local interfaces = libLayer1network.sto.getInterfaces()
+    local interfaces = libLayer1network.stp.getInterfaces()
     for interfaceUUID, infoStruct in pairs(interfaces) do
         print(align(infoStruct.name).."Link encap:"..infoStruct.type)
         print("        HWaddr "..interfaceUUID)
-        local pktIn, pktOut, bytesIn, bytesOut = infoStruct.driver.info(interfaceUUID)
+        local pktIn, pktOut, bytesIn, bytesOut = infoStruct.driver.driver.info(interfaceUUID)
         print("        RX packets:"..tostring(pktIn))
         print("        TX packets:"..tostring(pktOut))
         print("        RX bytes:"..tostring(bytesIn).."  TX bytes:"..tostring(bytesOut))

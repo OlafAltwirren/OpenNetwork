@@ -7,11 +7,11 @@ local logger = require("logging").getLogger("network")
 
 local interfaces = {}
 
-interfaces["sourceUUID"] = {}
+--[[interfaces["sourceUUID"] = {}
 interfaces["sourceUUID"].type = "Ethenet"
 interfaces["sourceUUID"].name = "eth0"
 interfaces["sourceUUID"].driver = nil -- drivers[file]
-
+]]
 
 local topologyTable = {}
 local topologyTableUpdated = false
@@ -96,7 +96,7 @@ local function networkLayer1Stack()
             type:string - the type of connection this interface represents, like Ethernet, Tunnel
           ]]
         function eventHandler.interfaceUp(name, sourceUUID, type)
-            logger.log("New interface: ", name, sourceUUID, type)
+            logger.log("New interface: "..name..", "..sourceUUID..", "..type)
             interfaces[sourceUUID] = {
                 type = type,
                 name = name,
@@ -203,7 +203,7 @@ local function networkLayer1Stack()
                 local args = { ... }
                 local res = { pcall(function() listener(table.unpack(args)) end) }
                 if not res[1] then
-                    logger.log("ERROR IN NET EVENTHANDLER[" .. file .. "]:", res[2])
+                    logger.log("ERROR IN NET EVENTHANDLER[" .. file .. "]:"..res[2])
                 end
                 return table.unpack(res, 2)
             end)
