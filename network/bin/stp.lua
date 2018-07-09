@@ -38,10 +38,10 @@ print("")
 for via, structList in pairs(viaTable) do
     print("  " .. via .. ":")
     for _, struct in pairs(structList) do
-        if (struct.destination == via and struct.mode == "direct" and struct.path == 0) then
-            print("    " .. struct.destination .. "  " .. filltext(struct.mode,8) .. "                                            " .. tostring(struct.age))
+        if (struct.destination == via) and (struct.mode == "direct") and (struct.path == 0) then
+            print("    " .. struct.destination .. "  " .. fillText(struct.mode,8) .. "                                            " .. tostring(struct.age))
         else
-            print("    " .. struct.destination .. "  " .. filltext("loopback",8) .. "  " .. fillText(tostring(struct.path), 4) .. " " .. fillText(struct.gateway, 36) .. " " .. tostring(struct.age))
+            print("    " .. struct.destination .. "  " .. fillText("loopback",8) .. "  " .. fillText(tostring(struct.path), 4) .. " " .. fillText(struct.gateway, 36) .. " " .. tostring(struct.age))
         end
     end
 end
