@@ -239,6 +239,7 @@ local function networkLayer1Stack()
     -- TODO start timed publish of updated topology
     event.timer(30, function(number)
         if topologyTableUpdated then
+            logger.log("Topology changed...")
             topologyTableUpdated = false
 
             for interfaceUUID in pairs(interfaces) do
@@ -247,6 +248,8 @@ local function networkLayer1Stack()
                     interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
                 end
             end
+        else
+            logger.log("Topology unchanged. Idling")
         end
     end)
 

@@ -13,6 +13,8 @@ local logging = {}
 logging.core = {}
 logging.core.initialized = false
 
+logging.core.loggers = {}
+
 function logging.core.init()
     if logging.core.initialied then
         return
@@ -22,13 +24,15 @@ end
 
 function logging.getLogger(namedLogger)
     logging.core.init()
-    return logging
+    logging.core.loggers[namedLogger] = {
+        loggerName = namedLogger,
+        log = function(message)
+            logging.core.logFile:write(os.date().." - "..namedLogger.." - "..message.."\n")
+            logging.core.logFile:flush()
+        end
+    }
+    return logging.core.loggers[namedLogger]
 end
 
-function logging.log(message)
-
-    logging.core.logFile:write(message.."\n")
-    logging.core.logFile:flush()
-end
 
 return logging
