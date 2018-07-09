@@ -266,10 +266,30 @@ local function networkLayer1Stack()
     -- startNetwork()    
     computer.pushSignal("network_ready") -- maybe L1_ready
 
-    -- TODO start timed publish of updated topology
-    event.timer(30, function()
+    -- Topology updating timertick
+    event.timer(10, function()
+        -- Update loopback interfaces' last seen time
+        for interfaceUUID in pairs(interfaces) do
+            topologyTable[interfaceUUID] = {
+                mode = "direct",
+                via = interfaceUUID,
+                gateway = "",
+                lastSeen = os.time(),
+                pathCost = 0
+            }
+        end
+
+        -- Clear out all outdated topology information
+        for destinationUUID in pairs(topologyTable) do
+            if (os.time - topologyTable[destinationUUID].lastSeen) > 16*100 then
+                logger.log("Discarding outdated topology entry for "..destinationUUID)
+                topologyTable[destinationUUID] = nil
+                topologyTableUpdated = true
+            end
+        end
+
         if topologyTableUpdated then
-            logger.log("Topology changed...")
+            logger.log("Sending STTI because topology changed.")
             topologyTableUpdated = false
 
             for interfaceUUID in pairs(interfaces) do
@@ -278,8 +298,6 @@ local function networkLayer1Stack()
                     interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
                 end
             end
-        else
-            logger.log("Topology unchanged. Idling")
         end
     end, math.huge)
 
