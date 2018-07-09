@@ -87,8 +87,8 @@ local function networkLayer1Stack()
         drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
 
         local eventHandler = {} -- Event Handers for the drivers to enable uplayer communication
-        -- eventHandler.debug = logger.log -- DEBUG ENABLED
-        eventHandler.debug = function()end
+        eventHandler.debug = logger.log -- DEBUG ENABLED
+        -- eventHandler.debug = function()end
 
         --[[
             For the driver to register a new interface upon detection
