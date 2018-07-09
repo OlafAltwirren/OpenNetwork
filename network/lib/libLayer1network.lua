@@ -1,5 +1,6 @@
 local computer = require("computer")
 local event = require("event")
+local logger = require("logging").getLogger("net-l1")
 
 -- keep all links to the dirver for the networkLayer1.lua
 local driver = {}
@@ -86,6 +87,7 @@ end
 -- Data processing
 
 event.listen("network_frame", function(_, sourceUUID, interfaceUUID, data)
+    logger.log("Got network_frame from "..sourceUUID)
     if data:sub(1, 1) == "I" then
         internal.icmp.handle(sourceUUID, interfaceUUID, data)
         --elseif data:sub(1,1) == "T" then internal.tcp.handle(origin, data)
