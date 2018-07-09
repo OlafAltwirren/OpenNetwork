@@ -47,4 +47,32 @@ end
 
 ------------
 
+-- ICMP
+libLayer1network.icmp = {}
+internal.icmp = {}
+
+local pingid = 0
+
+function libLayer1network.icmp.ping(destinationUUID, payload)
+    pingid = pingid + 1
+    driver.sendFrame(destinationUUID, "I"..computer.address()..":"..tostring(pingid)..":"..payload)
+    return pingid
+end
+
+function internal.icmp.handle(origin, data)
+    if data:sub(2,2) == "P" then
+        local matcher = data:sub(3):gmatch("[^:]+")
+        local compid = matcher()
+        local id = tonumber(matcher())
+        local payload = matcher()
+        if compid == computer.address() then
+            computer.pushSignal("ping_reply", origin, tonumber(id), payload)
+        else
+            driver.send(origin, data)
+        end
+    end
+end
+
+------------
+
 return libLayer1network

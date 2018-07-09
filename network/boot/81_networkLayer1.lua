@@ -132,7 +132,7 @@ local function networkLayer1Stack()
           ]]
         function eventHandler.recvData(data, interfaceUUID, sourceUUID)
             logger.log("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
-            -- TODO
+            computer.pushSignal("network_frame", sourceUUID, interfaceUUID, data)
         end
 
         --[[
@@ -260,7 +260,15 @@ local function networkLayer1Stack()
         drivers[file].handle = drivers[file].driver.start(eventHandler)
     end
 
-    -- Send data raw
+    -- Send
+    local sendFrame = function(destinationUUID, data)
+        if not topologyTable[destinationUUID] then
+            error("Destination unknown. Unable to send there.")
+        else
+            local sendingInterfaceUUID = topologyTable[destinationUUID].via
+            interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].driver, sendingInterfaceUUID, destinationUUID, data)
+        end
+    end
 
     getInterfaceInfo = function(interfaceUUID)
         if interfaces[interfaceUUID] then
@@ -308,6 +316,7 @@ local function networkLayer1Stack()
     -- Register L1 driver callbacks
     libLayer1network.core.setCallback("getTopologyTable", getTopologyTable)
     libLayer1network.core.setCallback("getInterfaces", getInterfaces)
+    libLayer1network.core.setCallback("sendFrame", sendFrame)
 end
 
 
