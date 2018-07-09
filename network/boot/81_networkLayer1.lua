@@ -176,8 +176,14 @@ local function networkLayer1Stack()
             gatewayUUID:string - NIL in case type=="direct", otherwise the destinationUUID to pass the frame on for reaching the destinationUUID
             viaUUID:string - the interface to be used to send to destinationUUID. Eigther to sent ot the gateway to reach it or directly
             type:string - may be "direct" or "passthrough"
+            forcePublish:boolean - forces publishing of updates
          ]]
-        function eventHandler.updateTopology(receiverInterfaceUUID, senderInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type)
+        function eventHandler.updateTopology(receiverInterfaceUUID, senderInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type, forcePublish)
+            -- Heed forcePublish flag
+            if forcePublish then
+                topologyTableUpdated = true
+            end
+
             -- get existing entry from topology
             if topologyTable[destinationUUID] then
                 if topologyTable[destinationUUID].pathCost > pathCost + distance then
@@ -281,8 +287,8 @@ local function networkLayer1Stack()
 
         -- Clear out all outdated topology information
         for destinationUUID in pairs(topologyTable) do
-            if (os.time() - topologyTable[destinationUUID].lastSeen) > 16*100 then
-                logger.log("Discarding outdated topology entry for "..destinationUUID)
+            if (os.time() - topologyTable[destinationUUID].lastSeen) > 16 * 600 then
+                logger.log("Discarding outdated topology entry for " .. destinationUUID)
                 topologyTable[destinationUUID] = nil
                 topologyTableUpdated = true
             end

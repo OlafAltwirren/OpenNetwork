@@ -219,7 +219,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct")
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", true)
     elseif data:sub(1, 1) == "B" then
         -- Handle B/broadcast -> Beacon message, telling the others this interface is still there. {sourceUUID}
         eventHnd.debug("Beacon Message Received from " .. sourceUUID .. ", distance " .. distance)
@@ -233,7 +233,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct")
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", true)
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
@@ -249,7 +249,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
 
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, "bridged")
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, "bridged", false)
 
     elseif data:sub(1, 1) == "L" then
         -- Handle L/broadcast -> Leave message of an interface from the topology {sourceInterfaceUUID}
