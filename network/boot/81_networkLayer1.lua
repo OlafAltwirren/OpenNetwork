@@ -299,10 +299,8 @@ local function networkLayer1Stack()
             topologyTableUpdated = false
 
             for interfaceUUID in pairs(interfaces) do
-                for destinationUUID in pairs(topologyTable) do
-                    logger.log("Sending STTI update on " .. interfaceUUID .. " for " .. destinationUUID)
-                    interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
-                end
+                logger.log("Sending STTI update on " .. interfaceUUID)
+                interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, topologyTable)
             end
         end
     end, math.huge)

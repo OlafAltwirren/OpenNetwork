@@ -94,13 +94,13 @@ end
  ]]
 local function decodeSTTI(data)
     --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type]
-    local pathCost = data:byte(2)
-    local destinationUUID, destinationUUIDlen = readSizeStr(data, 3)
-    local viaUUID, viaUUIDlen = readSizeStr(data, 3 + destinationUUIDlen)
-    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 3 + destinationUUIDlen + viaUUIDlen)
-    local type, typeLen = readSizeStr(data, 3 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
+    local pathCost = data:byte(1)
+    local destinationUUID, destinationUUIDlen = readSizeStr(data, 2)
+    local viaUUID, viaUUIDlen = readSizeStr(data, 2 + destinationUUIDlen)
+    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen)
+    local type, typeLen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
 
-    return destinationUUID, pathCost, viaUUID, gatewayUUID, type
+    return destinationUUID, pathCost, viaUUID, gatewayUUID, type, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen + typeLen
 end
 
 --[[
@@ -238,18 +238,23 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
 
-        local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType = decodeSTTI(data)
+        local compountSTTI = data:sub(1)
+        while compountSTTI:len() > 0 do
+            local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType, length = decodeSTTI(compountSTTI)
+            eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
+            compountSTTI = compountSTTI:sub(length)
 
-        local pathCost
-        if (distance > 0) then
-            -- wireless message
-            pathCost = 10 + distance
-        else
-            -- wired message
-            pathCost = 5
+            local pathCost
+            if (distance > 0) then
+                -- wireless message
+                pathCost = 10 + distance
+            else
+                -- wired message
+                pathCost = 5
+            end
+
+            eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, "bridged", false)
         end
-
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, "bridged", false)
 
     elseif data:sub(1, 1) == "L" then
         -- Handle L/broadcast -> Leave message of an interface from the topology {sourceInterfaceUUID}
@@ -307,10 +312,13 @@ end
        lastSeen:int
        pathCost:int
  ]]
-function driver.sendSTTI(interfaceUUID, destinationUUID, topologyInformation)
-
-    -- encode STTI frame
-    local data = encodeSTTI(destinationUUID, topologyInformation.pathCost, topologyInformation.via, topologyInformation.gateway, topologyInformation.mode)
+function driver.sendSTTI(interfaceUUID, topologyInformation)
+    --Format [STTI][STTI]...
+    local data = ""
+    for destinationUUID in pairs(topologyInformation) do
+        -- encode STTI frame
+        data = data .. encodeSTTI(destinationUUID, topologyInformation[destinationUUID].pathCost, topologyInformation[destinationUUID].via, topologyInformation[destinationUUID].gateway, topologyInformation[destinationUUID].mode)
+    end
 
     -- Update statistics
     interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
