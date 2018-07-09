@@ -99,16 +99,19 @@ local function decodeSTTI(data)
     local viaUUID, viaUUIDlen = readSizeStr(data, 2 + destinationUUIDlen)
     local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen)
     local type, typeLen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
+    local lastSeenStr, lastSeenStrLen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen + typeLen)
+    local lastSeen = tonumber(lastSeenStr)
 
-    return destinationUUID, pathCost, viaUUID, gatewayUUID, type, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen + typeLen
+    return destinationUUID, pathCost, viaUUID, gatewayUUID, type, lastSeen, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen + typeLen + lastSeenStrLen
 end
 
 --[[
     TODO
  ]]
-local function encodeSTTI(destinationUUID, pathCost, viaUUID, gatewayUUID, type)
-    --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type]
-    local composedData = toByte(pathCost) .. toByte(destinationUUID:len()) .. destinationUUID .. toByte(viaUUID:len()) .. viaUUID .. toByte(gatewayUUID:len()) .. gatewayUUID .. toByte(type:len()) .. type
+local function encodeSTTI(destinationUUID, pathCost, viaUUID, gatewayUUID, type, lastSeen)
+    --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type][lastSeen.len-byte][lastSeen]
+    local lastSeenStr = tostring(lastSeen)
+    local composedData = toByte(pathCost) .. toByte(destinationUUID:len()) .. destinationUUID .. toByte(viaUUID:len()) .. viaUUID .. toByte(gatewayUUID:len()) .. gatewayUUID .. toByte(type:len()) .. type ..toByte(lastSeenStr:len()) .. lastSeenStr
 
     return composedData
 end
@@ -219,7 +222,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", true)
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", os.time(), true)
     elseif data:sub(1, 1) == "B" then
         -- Handle B/broadcast -> Beacon message, telling the others this interface is still there. {sourceUUID}
         eventHnd.debug("Beacon Message Received from " .. sourceUUID .. ", distance " .. distance)
@@ -233,14 +236,14 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", true)
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", os.time(), true)
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
 
         local compountSTTI = data:sub(2)
         while compountSTTI:len() > 0 do
-            local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType, length = decodeSTTI(compountSTTI)
+            local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType, lastSeen, length = decodeSTTI(compountSTTI)
             eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
             compountSTTI = compountSTTI:sub(length)
 
@@ -253,7 +256,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
                 pathCost = 5
             end
 
-            eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType, false)
+            eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType, lastSeen, false)
         end
 
     elseif data:sub(1, 1) == "L" then
@@ -262,12 +265,14 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         eventHnd.partFromTopology(interfaceUUID, sourceUUID)
     elseif data:sub(1, 1) == "P" then
         -- Handle P/unicast -> Passthrough message of a Frame to be passed on {sourceInterfaceUUID, senderInterfaceUUID, destinationUUID, ttl, data}
+        eventHnd.debug("Received pass-through on " .. interfaceUUID.. " from "..sourceUUID)
 
         -- Decode passthrough frame
         local originalSourceUUID, destinationUUID, ttl, passThroughData = decodePassThroughFrame(data)
 
         -- in case we are the destination, give the data to the upper layer
         if interfaces[destinationUUID] then
+            eventHnd.debug("Received data on " .. interfaceUUID.. " as pass-through from "..sourceUUID)
             eventHnd.recvData(passThroughData, destinationUUID, originalSourceUUID)
         end
 
@@ -296,6 +301,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         end
     elseif data:sub(1, 1) == "D" then
         -- Handle D/unicast -> Direct Data for this interface. {sourceInterfaceUUID, destinationInterfaceUUID, data}
+        eventHnd.debug("Received data on " .. interfaceUUID.. " from "..sourceUUID)
         eventHnd.recvData(data:sub(2), interfaceUUID, sourceUUID)
     end
 end
@@ -317,7 +323,7 @@ function driver.sendSTTI(interfaceUUID, topologyInformation)
     local data = ""
     for destinationUUID in pairs(topologyInformation) do
         -- encode STTI frame
-        data = data .. encodeSTTI(destinationUUID, topologyInformation[destinationUUID].pathCost, topologyInformation[destinationUUID].via, topologyInformation[destinationUUID].gateway, topologyInformation[destinationUUID].mode)
+        data = data .. encodeSTTI(destinationUUID, topologyInformation[destinationUUID].pathCost, topologyInformation[destinationUUID].via, topologyInformation[destinationUUID].gateway, topologyInformation[destinationUUID].mode, topologyInformation[destinationUUID].lastSeen)
     end
 
     -- Update statistics

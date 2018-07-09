@@ -178,9 +178,10 @@ local function networkLayer1Stack()
             gatewayUUID:string - NIL in case type=="direct", otherwise the destinationUUID to pass the frame on for reaching the destinationUUID
             viaUUID:string - the interface to be used to send to destinationUUID. Eigther to sent ot the gateway to reach it or directly
             type:string - may be "direct" or "passthrough"
+            lastSeen:int - os.time() of last seen
             forcePublish:boolean - forces publishing of updates
          ]]
-        function eventHandler.updateTopology(receiverInterfaceUUID, senderInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type, forcePublish)
+        function eventHandler.updateTopology(receiverInterfaceUUID, senderInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type, lastSeen, forcePublish)
             -- Heed forcePublish flag
             if forcePublish then
                 topologyTableUpdated = true
@@ -197,7 +198,7 @@ local function networkLayer1Stack()
                             mode = "direct",
                             via = receiverInterfaceUUID,
                             gateway = "",
-                            lastSeen = os.time(),
+                            lastSeen = lastSeen,
                             pathCost = pathCost + distance,
                         }
                     else
@@ -205,7 +206,7 @@ local function networkLayer1Stack()
                             mode = "bridged",
                             via = receiverInterfaceUUID,
                             gateway = senderInterfaceUUID,
-                            lastSeen = os.time(),
+                            lastSeen = lastSeen,
                             pathCost = pathCost + distance,
                         }
                     end
@@ -221,7 +222,7 @@ local function networkLayer1Stack()
                         mode = "direct",
                         via = receiverInterfaceUUID,
                         gateway = "",
-                        lastSeen = os.time(),
+                        lastSeen = lastSeen,
                         pathCost = pathCost + distance,
                     }
                 else
@@ -229,7 +230,7 @@ local function networkLayer1Stack()
                         mode = "bridged",
                         via = receiverInterfaceUUID,
                         gateway = senderInterfaceUUID,
-                        lastSeen = os.time(),
+                        lastSeen = lastSeen,
                         pathCost = pathCost + distance,
                     }
                 end
