@@ -180,7 +180,7 @@ local function networkLayer1Stack()
         function eventHandler.updateTopology(receiverInterfaceUUID, senderInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type)
             -- get existing entry from topology
             if topologyTable[destinationUUID] then
-                if topologyTable[destinationUUID].pathCost >= pathCost + distance then
+                if topologyTable[destinationUUID].pathCost > pathCost + distance then
                     local oldPathCost = topologyTable[destinationUUID].pathCost
 
                     -- Old path is more expensive, so update with new path
