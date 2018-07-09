@@ -6,7 +6,7 @@
 -- To change this template use File | Settings | File Templates.
 --
 
-local filesystem = require("filesystem")
+-- local filesystem = require("filesystem")
 
 local logging = {}
 
@@ -19,7 +19,7 @@ function logging.core.init()
     if logging.core.initialied then
         return
     end
-    filesystem.rename("/log.txt", "/log.old")
+    -- filesystem.rename("/log.txt", "/log.old")
     logging.core.logFile = io.open("/log.txt", "w")
 end
 
