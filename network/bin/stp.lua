@@ -15,12 +15,15 @@ local function fillText(text, n)
     return text
 end
 
-local maxlen = {8, 5}
+local maxlen = { 8, 5 }
 
 local viaTable = {}
 
 -- Create inverse reference table
 for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTable()) do
+    if not viaTable[topologyEntry.via] then
+        viaTable[topologyEntry.via] = {}
+    end
     table.insert(viaTable[topologyEntry.via], {
         destination = destinationUUID,
         path = topologyEntry.pathCost,
@@ -33,8 +36,8 @@ end
 print("Topology via STP")
 print("")
 for via, structList in pairs(viaTable) do
-    print("  "..via..":")
-    for struct in pairs(structList) do
-        print("    "..struct.destination.."  "..struct.mode.."  "..fillText(struct.path, 4).." "..fillText(struct.gateway, 12).." "..struct.age)
+    print("  " .. via .. ":")
+    for _, struct in pairs(structList) do
+        print("    " .. struct.destination .. "  " .. struct.mode .. "  " .. fillText(tostring(struct.path), 4) .. " " .. fillText(struct.gateway, 12) .. " " .. tostring(struct.age))
     end
 end
