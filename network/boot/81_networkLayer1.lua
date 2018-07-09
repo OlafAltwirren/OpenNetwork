@@ -109,10 +109,9 @@ local function networkLayer1Stack()
                 mode = "direct",
                 via = sourceUUID,
                 gateway = "",
-                lastSeen = os.time(),   -- TODO needs to always be valid
+                lastSeen = os.time(), -- TODO needs to always be valid
                 pathCost = 0
             }
-
         end
 
         --[[
@@ -237,25 +236,31 @@ local function networkLayer1Stack()
     computer.pushSignal("network_ready") -- maybe L1_ready
 
     -- TODO start timed publish of updated topology
-    event.timer(30, function(number)
-        if topologyTableUpdated then
-            logger.log("Topology changed...")
-            topologyTableUpdated = false
-
-            for interfaceUUID in pairs(interfaces) do
-                for destinationUUID in pairs(topologyTable) do
-                    logger.log("Sending STTI update on " .. interfaceUUID .. " for " .. destinationUUID)
-                    interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
-                end
-            end
-        else
-            logger.log("Topology unchanged. Idling")
-        end
-    end)
+    event.timer(30,networkLayer1Stack.topologyPublishTimer(number))
 
     -- Register L1 driver callbacks
     libLayer1network.core.setCallback("getTopologyTable", getTopologyTable)
     libLayer1network.core.setCallback("getInterfaces", getInterfaces)
+end
+
+--[[
+    TODO
+ ]]
+function networkLayer1Stack.topologyPublishTimer(number)
+    if topologyTableUpdated then
+        logger.log("Topology changed...")
+        topologyTableUpdated = false
+
+        for interfaceUUID in pairs(interfaces) do
+            for destinationUUID in pairs(topologyTable) do
+                logger.log("Sending STTI update on " .. interfaceUUID .. " for " .. destinationUUID)
+                interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
+            end
+        end
+    else
+        logger.log("Topology unchanged. Idling")
+    end
+    event.timer(30,networkLayer1Stack.topologyPublishTimer(number))
 end
 
 ------------------------

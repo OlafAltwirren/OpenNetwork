@@ -17,8 +17,24 @@ end
 
 local maxlen = {8, 5}
 
-for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTable()) do
-    print(destinationUUID..","..topologyEntry.pathCost..", "..topologyEntry.via.."->"..topologyEntry.gateway..", "..topologyEntry.mode.." @"..topologyEntry.lastSeen)
+local viaTable = {}
 
+-- Create inverse reference table
+for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTable()) do
+    table.insert(viaTable[topologyEntry.via], {
+        destination = destinationUUID,
+        path = topologyEntry.pathCost,
+        gateway = topologyEntry.gateway,
+        mode = topologyEntry.mode,
+        age = os.time() - topologyEntry.lastSeen
+    })
 end
 
+print("Topology via STP")
+pritn("")
+for via, structList in pairs(viaTable) do
+    print("  "..via..":")
+    for struct in pairs(structList) do
+        print("    "..struct.destination.."  "..struct.mode.."  "..fillText(struct.path, 4).." "..fillText(struct.gateway, 12).." "..struct.age)
+    end
+end
