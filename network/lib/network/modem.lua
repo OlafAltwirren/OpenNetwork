@@ -357,7 +357,7 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                 else
                     -- we have to pass the frame content on
                     handle.debug("Sending pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
-                    sendPassThrough(handle, topologyForDestination.via, topologyForDestination.gateway, driver.encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
+                    sendPassThrough(handle, topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
                 end
             end
         end
