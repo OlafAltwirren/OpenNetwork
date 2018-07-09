@@ -160,7 +160,7 @@ local function networkLayer1Stack()
             Update of the topology from the network.
 
             interfaceUUID, sourceUUID
-            I,S,15:S,0,S,d -> S,15,I->S,b  -- loopback on other node, same as sending STTI
+            I,S,15:S,0,S,d -> S,15,I,d  -- loopback on other node, same as sending STTI
             I,S,15:A,0,A,d -> A,15,I->S,b  -- loopback on other node, another as sending STTI
             I,S,15:C,14,S,d -> C,15+14,I->S,b -- directly reachable interface from sender of STTI
             I,S,15:D,7,S->X,b -> D,15+7,I->S,b -- bridged reachable interface from STTI sender's interface on
@@ -184,11 +184,23 @@ local function networkLayer1Stack()
                     local oldPathCost = topologyTable[destinationUUID].pathCost
 
                     -- Old path is more expensive, so update with new path
-                    topologyTable[destinationUUID].mode = type
-                    topologyTable[destinationUUID].via = receiverInterfaceUUID
-                    topologyTable[destinationUUID].gateway = senderInterfaceUUID
-                    topologyTable[destinationUUID].lastSeen = os.time()
-                    topologyTable[destinationUUID].pathCost = pathCost + distance
+                    if destinationUUID == senderInterfaceUUID then
+                        topologyTable[destinationUUID] = {
+                            mode = "direct",
+                            via = receiverInterfaceUUID,
+                            gateway = "",
+                            lastSeen = os.time(),
+                            pathCost = pathCost + distance,
+                        }
+                    else
+                        topologyTable[destinationUUID] = {
+                            mode = "bridged",
+                            via = receiverInterfaceUUID,
+                            gateway = senderInterfaceUUID,
+                            lastSeen = os.time(),
+                            pathCost = pathCost + distance,
+                        }
+                    end
 
                     logger.log("Updating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
 
@@ -196,13 +208,23 @@ local function networkLayer1Stack()
                 end
             else
                 -- Add the destination to the table
-                topologyTable[destinationUUID] = {
-                    mode = type,
-                    via = receiverInterfaceUUID,
-                    gateway = senderInterfaceUUID,
-                    lastSeen = os.time(),
-                    pathCost = pathCost + distance
-                }
+                if destinationUUID == senderInterfaceUUID then
+                    topologyTable[destinationUUID] = {
+                        mode = "direct",
+                        via = receiverInterfaceUUID,
+                        gateway = "",
+                        lastSeen = os.time(),
+                        pathCost = pathCost + distance,
+                    }
+                else
+                    topologyTable[destinationUUID] = {
+                        mode = "bridged",
+                        via = receiverInterfaceUUID,
+                        gateway = senderInterfaceUUID,
+                        lastSeen = os.time(),
+                        pathCost = pathCost + distance,
+                    }
+                end
 
                 logger.log("Adding new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
 
