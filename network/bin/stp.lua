@@ -41,7 +41,7 @@ for via, structList in pairs(viaTable) do
         if (struct.destination == via) and (struct.mode == "direct") and (struct.path == 0) then
             print("    " .. struct.destination .. "  " .. fillText("loopback",8) .. "                                            " .. tostring(struct.age))
         else
-            print("    " .. struct.destination .. "  " .. fillText(struct.mode,8) .. "  " .. fillText(tostring(struct.path), 4) .. " " .. fillText(struct.gateway, 36) .. " " .. tostring(struct.age))
+            print("    " .. struct.destination .. "  " .. fillText(struct.mode,8) .. "  " .. fillText(tostring(math.floor(struct.path+0.5)), 4) .. " " .. fillText(struct.gateway, 36) .. " " .. tostring(struct.age))
         end
     end
 end

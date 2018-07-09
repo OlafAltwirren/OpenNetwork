@@ -159,6 +159,15 @@ local function networkLayer1Stack()
         --[[
             Update of the topology from the network.
 
+            interfaceUUID, sourceUUID
+            I,S,15:S,0,S,d -> S,15,I->S,b  -- loopback on other node, same as sending STTI
+            I,S,15:A,0,A,d -> A,15,I->S,b  -- loopback on other node, another as sending STTI
+            I,S,15:C,14,S,d -> C,15+14,I->S,b -- directly reachable interface from sender of STTI
+            I,S,15:D,7,S->X,b -> D,15+7,I->S,b -- bridged reachable interface from STTI sender's interface on
+            I,S,15:E,11,A->Y,b -> D,15+11,I->S,b -- bridged reachable interface from other then STTI sender's interface
+
+            I,S,N:D,P,X->Y,T -> D,N+P,I->S,b
+
             receiverInterfaceUUID:string - the interfaceUUID of the interface receiving this STTI.
             senderInterfaceUUID:string - the interfaceUUID of the interface that sent the STTI.
             distance:int - the path cost of the STTI frame received.
@@ -181,7 +190,7 @@ local function networkLayer1Stack()
                     topologyTable[destinationUUID].lastSeen = os.time()
                     topologyTable[destinationUUID].pathCost = pathCost + distance
 
-                    logger.log("Apdating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
+                    logger.log("Updating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
 
                     topologyTableUpdated = true
                 end

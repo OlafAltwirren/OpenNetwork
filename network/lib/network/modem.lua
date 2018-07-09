@@ -225,7 +225,8 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             -- wired message
             pathCost = 5
         end
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType) -- add 10 to path cost for
+
+        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, "bridged")
 
     elseif data:sub(1,1) == "L" then
         -- Handle L/broadcast -> Leave message of an interface from the topology {sourceInterfaceUUID}
