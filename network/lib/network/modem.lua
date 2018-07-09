@@ -22,12 +22,12 @@ local driver = {}
 local interfaces = {}
 
 -- Structure
-interfaces["interfaceUUID"] = {
+--[[interfaces["interfaceUUID"] = {
     name = "ethX",
     pktIn = 0,
     pktOut = 0,
     bytesIn = 0,
-    bytesOut = 0
+    bytesOut = 0 ]]
 }
 
 local eventHnd
