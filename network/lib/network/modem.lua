@@ -94,11 +94,11 @@ end
  ]]
 local function decodeSTTI(data)
     --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type]
-    local pathCost = data:byte(1)
-    local destinationUUID, destinationUUIDlen = readSizeStr(data, 2)
-    local viaUUID, viaUUIDlen = readSizeStr(data, 2 + destinationUUIDlen)
-    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen)
-    local type, typeLen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
+    local pathCost = data:byte(0)
+    local destinationUUID, destinationUUIDlen = readSizeStr(data, 1)
+    local viaUUID, viaUUIDlen = readSizeStr(data, 1 + destinationUUIDlen)
+    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 1 + destinationUUIDlen + viaUUIDlen)
+    local type, typeLen = readSizeStr(data, 1 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
 
     return destinationUUID, pathCost, viaUUID, gatewayUUID, type, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen + typeLen
 end
