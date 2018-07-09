@@ -1,3 +1,5 @@
+local computer = require("computer")
+
 -- keep all links to the dirver for the networkLayer1.lua
 local driver = {}
 

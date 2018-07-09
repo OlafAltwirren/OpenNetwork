@@ -11,6 +11,7 @@ local interfaces = {}
 interfaces["sourceUUID"].type = "Ethenet"
 interfaces["sourceUUID"].name = "eth0"
 interfaces["sourceUUID"].driver = nil -- drivers[file]
+interfaces["sourceUUID"].handler = this drivers handler
 ]]
 
 local topologyTable = {}
@@ -101,7 +102,8 @@ local function networkLayer1Stack()
             interfaces[sourceUUID] = {
                 type = type,
                 name = name,
-                driver = drivers[file]
+                driver = drivers[file],
+                handler = eventHandler
             }
 
             -- Add self reference to topology. this essentially is a loopback interface
@@ -266,7 +268,7 @@ local function networkLayer1Stack()
             error("Destination unknown. Unable to send there.")
         else
             local sendingInterfaceUUID = topologyTable[destinationUUID].via
-            interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].driver, sendingInterfaceUUID, destinationUUID, data)
+            interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].handler, sendingInterfaceUUID, destinationUUID, data)
         end
     end
 
