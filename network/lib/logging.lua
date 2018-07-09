@@ -16,11 +16,11 @@ logging.core.initialized = false
 logging.core.loggers = {}
 
 function logging.core.init()
-    if logging.core.initialied then
+    if logging.core.initialized then
         return
     else
         -- filesystem.rename("/log.txt", "/log.old")
-        logging.core.initialied = true
+        logging.core.initialized = true
         logging.core.logFile = io.open("/log.txt", "w")
     end
 end

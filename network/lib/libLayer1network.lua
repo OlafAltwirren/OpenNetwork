@@ -1,6 +1,6 @@
 local computer = require("computer")
 local event = require("event")
-local logger = require("logging").getLogger("net-l1")
+local logging = require("logging")
 
 -- keep all links to the dirver for the networkLayer1.lua
 local driver = {}
@@ -53,7 +53,9 @@ end
 
 -- ICMP
 libLayer1network.icmp = {}
-internal.icmp = {}
+internal.icmp = {
+    logger = logging.getLogger("icmp")
+}
 
 local pingid = 0
 
@@ -76,8 +78,10 @@ function internal.icmp.handle(sourceUUID, interfaceUUID, data)
         local id = tonumber(matcher())
         local payload = matcher()
         if compid == computer.address() then
+            internal.icmp.logger.log("ICMP Echo reply from "..sourceUUID..", id "..id)
             computer.pushSignal("stp_ping_reply", sourceUUID, interfaceUUID, tonumber(id), payload)
         else
+            internal.icmp.logger.log("ICMP Echo request from "..sourceUUID..", id "..id)
             driver.sendFrame(sourceUUID, data)
         end
     end
@@ -87,7 +91,7 @@ end
 -- Data processing
 
 event.listen("network_frame", function(_, sourceUUID, interfaceUUID, data)
-    logger.log("Got network_frame from "..sourceUUID)
+    internal.icmp.logger.log("Got network_frame from "..sourceUUID..". Protocol "..data:sub(1, 1))
     if data:sub(1, 1) == "I" then
         internal.icmp.handle(sourceUUID, interfaceUUID, data)
         --elseif data:sub(1,1) == "T" then internal.tcp.handle(origin, data)
