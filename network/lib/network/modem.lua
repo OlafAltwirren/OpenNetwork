@@ -27,9 +27,9 @@ local interfaces = {}
     pktIn = 0,
     pktOut = 0,
     bytesIn = 0,
-    bytesOut = 0 ]]
+    bytesOut = 0
 }
-
+]]
 local eventHnd
 
 
