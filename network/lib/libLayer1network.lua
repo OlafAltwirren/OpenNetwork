@@ -55,25 +55,42 @@ internal.icmp = {}
 
 local pingid = 0
 
+--[[
+    Send a layer 1 STP based ping frame.
+ ]]
 function libLayer1network.icmp.ping(destinationUUID, payload)
     pingid = pingid + 1
-    driver.sendFrame(destinationUUID, "I"..computer.address()..":"..tostring(pingid)..":"..payload)
+    driver.sendFrame(destinationUUID, "IP" .. computer.address() .. ":" .. tostring(pingid) .. ":" .. payload)
     return pingid
 end
 
-function internal.icmp.handle(origin, data)
-    if data:sub(2,2) == "P" then
+--[[
+    Handle ICMP protocol specific data
+ ]]
+function internal.icmp.handle(sourceUUID, interfaceUUID, data)
+    if data:sub(2, 2) == "P" then
         local matcher = data:sub(3):gmatch("[^:]+")
         local compid = matcher()
         local id = tonumber(matcher())
         local payload = matcher()
         if compid == computer.address() then
-            computer.pushSignal("ping_reply", origin, tonumber(id), payload)
+            computer.pushSignal("stp_ping_reply", sourceUUID, interfaceUUID, tonumber(id), payload)
         else
-            driver.send(origin, data)
+            driver.sendFrame(sourceUUID, data)
         end
     end
 end
+
+------------
+-- Data processing
+
+event.listen("network_frame", function(_, sourceUUID, interfaceUUID, data)
+    if data:sub(1, 1) == "I" then
+        internal.icmp.handle(sourceUUID, interfaceUUID, data)
+        --elseif data:sub(1,1) == "T" then internal.tcp.handle(origin, data)
+        -- elseif data:sub(1,1) == "D" then internal.udp.handle(origin, data)
+    end
+end)
 
 ------------
 

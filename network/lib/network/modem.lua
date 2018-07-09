@@ -356,7 +356,7 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                 handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
                 return
             else
-                if topologyForDestination.type == "direct" then
+                if topologyForDestination.mode == "direct" then
                     -- we can directly send to the destination
                     handle.debug("Sending directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                     sendDirect(handle, topologyForDestination.via, destinationUUID, data)
