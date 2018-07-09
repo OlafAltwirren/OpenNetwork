@@ -64,25 +64,6 @@ end
 
 local initiated = false
 
---[[
-    TODO
- ]]
-local function topologyPublishTimer()
-    if topologyTableUpdated then
-        logger.log("Topology changed...")
-        topologyTableUpdated = false
-
-        for interfaceUUID in pairs(interfaces) do
-            for destinationUUID in pairs(topologyTable) do
-                logger.log("Sending STTI update on " .. interfaceUUID .. " for " .. destinationUUID)
-                interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
-            end
-        end
-    else
-        logger.log("Topology unchanged. Idling")
-    end
-end
-
 local function networkLayer1Stack()
     if initiated then
         logger.log("Layer 1 Stack already initiated.")
@@ -255,13 +236,26 @@ local function networkLayer1Stack()
     computer.pushSignal("network_ready") -- maybe L1_ready
 
     -- TODO start timed publish of updated topology
-    event.timer(30, topologyPublishTimer(), math.huge)
+    event.timer(30, function()
+        if topologyTableUpdated then
+            logger.log("Topology changed...")
+            topologyTableUpdated = false
+
+            for interfaceUUID in pairs(interfaces) do
+                for destinationUUID in pairs(topologyTable) do
+                    logger.log("Sending STTI update on " .. interfaceUUID .. " for " .. destinationUUID)
+                    interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, destinationUUID, topologyTable[destinationUUID])
+                end
+            end
+        else
+            logger.log("Topology unchanged. Idling")
+        end
+    end, math.huge)
 
     -- Register L1 driver callbacks
     libLayer1network.core.setCallback("getTopologyTable", getTopologyTable)
     libLayer1network.core.setCallback("getInterfaces", getInterfaces)
 end
-
 
 
 ------------------------

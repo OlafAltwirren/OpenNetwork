@@ -31,7 +31,7 @@ for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTabl
 end
 
 print("Topology via STP")
-pritn("")
+print("")
 for via, structList in pairs(viaTable) do
     print("  "..via..":")
     for struct in pairs(structList) do
