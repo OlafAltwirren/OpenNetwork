@@ -18,9 +18,11 @@ logging.core.loggers = {}
 function logging.core.init()
     if logging.core.initialied then
         return
+    else
+        -- filesystem.rename("/log.txt", "/log.old")
+        logging.core.initialied = true
+        logging.core.logFile = io.open("/log.txt", "w")
     end
-    -- filesystem.rename("/log.txt", "/log.old")
-    logging.core.logFile = io.open("/log.txt", "w")
 end
 
 function logging.getLogger(namedLogger)
@@ -28,7 +30,7 @@ function logging.getLogger(namedLogger)
     logging.core.loggers[namedLogger] = {
         loggerName = namedLogger,
         log = function(message)
-            logging.core.logFile:write(os.date().." - "..namedLogger.." - "..message.."\n")
+            logging.core.logFile:write(os.date() .. " - " .. namedLogger .. " - " .. message .. "\n")
             logging.core.logFile:flush()
         end
     }
