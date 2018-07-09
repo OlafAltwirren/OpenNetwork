@@ -281,7 +281,7 @@ local function networkLayer1Stack()
 
         -- Clear out all outdated topology information
         for destinationUUID in pairs(topologyTable) do
-            if (os.time - topologyTable[destinationUUID].lastSeen) > 16*100 then
+            if (os.time() - topologyTable[destinationUUID].lastSeen) > 16*100 then
                 logger.log("Discarding outdated topology entry for "..destinationUUID)
                 topologyTable[destinationUUID] = nil
                 topologyTableUpdated = true
