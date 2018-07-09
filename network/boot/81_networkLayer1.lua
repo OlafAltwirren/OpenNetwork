@@ -67,7 +67,7 @@ local initiated = false
 --[[
     TODO
  ]]
-local function topologyPublishTimer(number)
+local function topologyPublishTimer()
     if topologyTableUpdated then
         logger.log("Topology changed...")
         topologyTableUpdated = false
@@ -81,7 +81,6 @@ local function topologyPublishTimer(number)
     else
         logger.log("Topology unchanged. Idling")
     end
-    event.timer(30, topologyPublishTimer(number))
 end
 
 local function networkLayer1Stack()
@@ -256,7 +255,7 @@ local function networkLayer1Stack()
     computer.pushSignal("network_ready") -- maybe L1_ready
 
     -- TODO start timed publish of updated topology
-    event.timer(30, topologyPublishTimer(number))
+    event.timer(30, topologyPublishTimer(), math.huge)
 
     -- Register L1 driver callbacks
     libLayer1network.core.setCallback("getTopologyTable", getTopologyTable)
