@@ -94,11 +94,11 @@ end
  ]]
 local function decodeSTTI(data)
     --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type]
-    local pathCost = data:byte(0)
-    local destinationUUID, destinationUUIDlen = readSizeStr(data, 1)
-    local viaUUID, viaUUIDlen = readSizeStr(data, 1 + destinationUUIDlen)
-    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 1 + destinationUUIDlen + viaUUIDlen)
-    local type, typeLen = readSizeStr(data, 1 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
+    local pathCost = data:byte(1)
+    local destinationUUID, destinationUUIDlen = readSizeStr(data, 2)
+    local viaUUID, viaUUIDlen = readSizeStr(data, 2 + destinationUUIDlen)
+    local gatewayUUID, gatewayUUIDlen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen)
+    local type, typeLen = readSizeStr(data, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen)
 
     return destinationUUID, pathCost, viaUUID, gatewayUUID, type, 2 + destinationUUIDlen + viaUUIDlen + gatewayUUIDlen + typeLen
 end
@@ -238,7 +238,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
 
-        local compountSTTI = data:sub(1)
+        local compountSTTI = data:sub(2)
         while compountSTTI:len() > 0 do
             local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType, length = decodeSTTI(compountSTTI)
             eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
@@ -253,7 +253,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
                 pathCost = 5
             end
 
-            eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, "bridged", false)
+            eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType, false)
         end
 
     elseif data:sub(1, 1) == "L" then
