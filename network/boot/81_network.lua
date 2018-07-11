@@ -65,7 +65,7 @@ end
 
 local initiated = false
 
-local function network()
+local function networkDriver()
     if initiated then
         logger.log("Layer 1 Stack already initiated.")
         return
@@ -326,4 +326,4 @@ end
 ------------------------
 
 -- On initialization start the network
-event.listen("init", network)
+event.listen("init", networkDriver)
