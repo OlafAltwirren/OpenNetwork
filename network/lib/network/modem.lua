@@ -204,7 +204,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         return
     end
 
-    eventHnd.debug("Incoming Frame on " .. interfaceUUID .. " from " .. sourceUUID .. ", distance " .. distance)
+    -- eventHnd.debug("Incoming Frame on " .. interfaceUUID .. " from " .. sourceUUID .. ", distance " .. distance)
 
     interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + 1
     interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + data:len()
@@ -244,7 +244,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         local compountSTTI = data:sub(2)
         while compountSTTI:len() > 0 do
             local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType, lastSeen, length = decodeSTTI(compountSTTI)
-            eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
+            -- eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
             compountSTTI = compountSTTI:sub(length)
 
             local pathCost
@@ -272,7 +272,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
 
         -- in case we are the destination, give the data to the upper layer
         if interfaces[destinationUUID] then
-            eventHnd.debug("Received data on " .. interfaceUUID.. " as pass-through from "..sourceUUID)
+            eventHnd.debug("PT Received data on " .. interfaceUUID.. " as pass-through from "..sourceUUID)
             eventHnd.recvData(passThroughData, destinationUUID, originalSourceUUID)
         end
 
@@ -286,16 +286,16 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         local topologyForDestination = eventHnd.getTopologyInformation(destinationUUID)
         if not topologyForDestination then
             -- Unknown destination, no knowledge where to send it to...
-            eventHnd.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
+            eventHnd.debug("PT Destination " .. destinationUUID .. " not known to this node. TODO")
             return
         else
             if topologyForDestination.mode == "direct" then
                 -- we can directly send to the destination
-                eventHnd.debug("Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
+                eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                 sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
             else
                 -- we have to pass the frame content on
-                eventHnd.debug("Pass Through sent on as pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
+                eventHnd.debug("PT Pass Through sent on as pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
                 sendPassThrough(eventHnd, topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
             end
         end

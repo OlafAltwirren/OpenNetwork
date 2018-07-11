@@ -133,7 +133,7 @@ local function networkDriver()
             sourceUUID:string - the original senter interfaceUUID that sent the data.
           ]]
         function eventHandler.recvData(data, interfaceUUID, sourceUUID)
-            logger.log("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
+            -- logger.log("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
             computer.pushSignal("network_frame", sourceUUID, interfaceUUID, data)
         end
 
