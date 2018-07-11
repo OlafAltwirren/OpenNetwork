@@ -307,7 +307,7 @@ local function networkDriver()
             topologyTableUpdated = false
 
             for interfaceUUID in pairs(interfaces) do
-                logger.log("Sending STTI update on " .. interfaceUUID)
+                -- logger.log("Sending STTI update on " .. interfaceUUID)
                 interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, topologyTable)
             end
         end
