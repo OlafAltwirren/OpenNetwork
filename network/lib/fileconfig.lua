@@ -24,6 +24,10 @@ print(conf["cfgString"])
 </p>
 --]]
 
+
+--[[
+    TODO
+ ]]
 local function readAll(file)
     local f = io.open(file, "rb")
     if f then
@@ -35,11 +39,17 @@ local function readAll(file)
     end
 end
 
+--[[
+    TODO
+ ]]
 function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
     -- Try to load configuration file
-    local loadedConfigurationTable = json.decode(readAll("/etc/" .. configFileName))
+    local fileContent = readAll("/etc/" .. configFileName)
     -- Fill in defaults.
-    loadedConfigurationTable = loadedConfigurationTable or defaultConfigurationTable
+    local loadedConfigurationTable = defaultConfigurationTable
+    if fileContent then
+        loadedConfigurationTable = json.decode(fileContent)
+    end
     -- Generate config file if it didn't exist.
     if not filesystem.exists("/etc/" .. configFileName) then
         local rootDirectory = filesystem.get("/")
@@ -56,6 +66,10 @@ function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
     return loadedConfigurationTable
 end
 
+
+--[[
+    TODO
+ ]]
 ---
 -- Saves given config by overwriting/creating given file
 -- Returns saved config
