@@ -1,6 +1,6 @@
 local event = require("event")
 local computer = require("computer")
-local libLayer1network = require("libLayer1network")
+local network = require("network")
 local logger = require("logging").getLogger("network")
 
 ----------------------- new
@@ -65,7 +65,7 @@ end
 
 local initiated = false
 
-local function networkLayer1Stack()
+local function network()
     if initiated then
         logger.log("Layer 1 Stack already initiated.")
         return
@@ -317,13 +317,13 @@ local function networkLayer1Stack()
     end, math.huge)
 
     -- Register L1 driver callbacks
-    libLayer1network.core.setCallback("getTopologyTable", getTopologyTable)
-    libLayer1network.core.setCallback("getInterfaces", getInterfaces)
-    libLayer1network.core.setCallback("sendFrame", sendFrame)
+    network.core.setCallback("getTopologyTable", getTopologyTable)
+    network.core.setCallback("getInterfaces", getInterfaces)
+    network.core.setCallback("sendFrame", sendFrame)
 end
 
 
 ------------------------
 
--- On initialization start the networkLayer1Stack
-event.listen("init", networkLayer1Stack)
+-- On initialization start the network
+event.listen("init", network)

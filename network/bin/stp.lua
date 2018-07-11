@@ -6,7 +6,7 @@
 -- To change this template use File | Settings | File Templates.
 --
 
-local libLayer1network = require("libLayer1network")
+local network = require("network")
 
 local function fillText(text, n)
     for k = 1, n - #text do
@@ -20,7 +20,7 @@ local maxlen = { 8, 5 }
 local viaTable = {}
 
 -- Create inverse reference table
-for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTable()) do
+for destinationUUID, topologyEntry in pairs(network.stp.getTopologyTable()) do
     if not viaTable[topologyEntry.via] then
         viaTable[topologyEntry.via] = {}
     end

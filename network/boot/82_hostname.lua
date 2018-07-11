@@ -1,4 +1,4 @@
-local libLayer1network = require("libLayer1network")
+local network = require("network")
 local fileconfig = require("fileconfig")
 local event = require("event")
 local computer = require("computer")
@@ -22,7 +22,7 @@ event.listen("network_ready", function()
         for interfaceUUID in pairs(hostnameConfig) do
             for domainName in pairs(hostnameConfig[interfaceUUID]) do
                 logger.log("Binding "..domainName.." to interface "..interfaceUUID) -- TOOD use eth0 or such instead of UUID
-                libLayer1network.inp.bindDomainName(domainName, interfaceUUID)
+                network.inp.bindDomainName(domainName, interfaceUUID)
             end
         end
 

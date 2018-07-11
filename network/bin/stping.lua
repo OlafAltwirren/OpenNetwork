@@ -1,4 +1,4 @@
-local libLayer1network = require("libLayer1network")
+local network = require("network")
 local event = require("event")
 local computer = require("computer")
 local shell = require("shell")
@@ -56,7 +56,7 @@ end
 local function doPing()
 
     local payload = generatePayload()
-    local icmp_seq = libLayer1network.icmp.ping(args[1], payload)
+    local icmp_seq = network.icmp.ping(args[1], payload)
     stats.transmitted = stats.transmitted + 1
     verbose(tostring(len) .. " bytes to " .. args[1] .. ": icmp_seq=" .. tostring(icmp_seq))
     local start = computer.uptime()

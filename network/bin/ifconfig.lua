@@ -1,4 +1,4 @@
-local libLayer1network = require("libLayer1network")
+local network = require("network")
 local computer = require("computer")
 local args = {...}
 
@@ -6,7 +6,7 @@ local function align(txt)return txt .. ("        "):sub(#txt+1)end
 
 if #args < 1 then
     print("Network interfaces:")
-    local interfaces = libLayer1network.stp.getInterfaces()
+    local interfaces = network.stp.getInterfaces()
     for interfaceUUID, infoStruct in pairs(interfaces) do
         print(align(infoStruct.name).."Link encap:"..infoStruct.type)
         print("        HWaddr "..interfaceUUID)
