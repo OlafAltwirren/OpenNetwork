@@ -5,13 +5,6 @@ local shell = require("shell")
 
 local args, options = shell.parse(...)
 
-if #args < 1 or options.h or options.help then
-    print("Usage: dig: [domain][.network] [option]")
-    print("  -l   --list                Lists this node's name cache")
-    print("  -v   --verbose             Output more details")
-    return
-end
-
 local function fillText(text, n)
     for k = 1, n - #text do
         text = text .. " "
@@ -21,10 +14,21 @@ end
 
 local function round(n, r) return math.floor(n * (10 ^ r)) / (10 ^ r) end
 
+local function showHelp()
+    print("Usage: dig: [domain][.network] [option]")
+    print("  -l   --list                Lists this node's name cache")
+    print("  -v   --verbose             Output more details")
+    return
+end
+
 local function verbose(...)
     if options.v or options.verbose then
         print(...)
     end
+end
+
+if options.h or options.help then
+    showHelp()
 end
 
 local state, reason = pcall(function()
@@ -37,6 +41,9 @@ local state, reason = pcall(function()
         end
         print(" -- *=authorative")
     else
+        if #args < 1 then
+            showHelp()
+        end
         print("DIG for " .. args[1])
         local interfaceUUID = network.inp.getInterfaceForDomainName(args[1])
         if interfaceUUID then
