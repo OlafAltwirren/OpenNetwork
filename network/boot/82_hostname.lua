@@ -9,7 +9,7 @@ local defaultHostnameConfig = {}
 event.listen("network_ready", function()
     pcall(function()
         -- create default config
-        for interfaceUUID, interfaceStruct in pairs(libLayer1network.stp.getInterfaces()) do
+        for interfaceUUID, interfaceStruct in pairs(network.stp.getInterfaces()) do
             defaultHostnameConfig[interfaceUUID] = {}
             table.insert(defaultHostnameConfig[interfaceUUID], interfaceStruct.name .. "-" .. computer.address())
         end
