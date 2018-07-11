@@ -108,7 +108,8 @@ end
 
 network.inp = {}
 internal.inp = {
-    maxNameAge = 3600,
+    maxNameAge = 3600, -- amount of seconds to keep a name in the cache until it is deemed outdated
+    maxNameQueryWait = 30, -- amount of seconds to wait for a name query reply
     logger = logging.getLogger("inp"),
     nameTable = {}, -- mapping from "host.network" -> interfaceUUID
     interfaceTable = {}, -- mapping from interfaceUUID.["host.network"] -> existing
@@ -156,6 +157,12 @@ function network.inp.updateNameCache(domainName, interfaceUUID, authorative)
     }
 end
 
+--[[
+    TODO
+ ]]
+function network.inp.getNameCache()
+    return internal.inp.nameCache
+end
 
 --[[
     TODO
