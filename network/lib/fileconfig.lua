@@ -25,10 +25,14 @@ print(conf["cfgString"])
 --]]
 
 local function readAll(file)
-    local f = assert(io.open(file, "rb"))
-    local content = f:read("*all")
-    f:close()
-    return content
+    local f = io.open(file, "rb")
+    if f then
+        local content = f:read("*all")
+        f:close()
+        return content
+    else
+        return nil
+    end
 end
 
 function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
