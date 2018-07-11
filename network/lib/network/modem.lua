@@ -216,7 +216,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         local pathCost
         if (distance > 0) then
             -- wireless message
-            pathCost = 10 + distance
+            pathCost = 10 + math.floor(distance+0.5)
         else
             -- wired message
             pathCost = 5
@@ -230,7 +230,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
         local pathCost
         if (distance > 0) then
             -- wireless message
-            pathCost = 10 + distance
+            pathCost = 10 + math.floor(distance+0.5)
         else
             -- wired message
             pathCost = 5
@@ -250,7 +250,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             local pathCost
             if (distance > 0) then
                 -- wireless message
-                pathCost = 10 + distance
+                pathCost = 10 + math.floor(distance+0.5)
             else
                 -- wired message
                 pathCost = 5
