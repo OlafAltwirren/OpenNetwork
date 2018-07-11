@@ -2,6 +2,7 @@ local event = require("event")
 local computer = require("computer")
 local network = require("network")
 local logger = require("logging").getLogger("network")
+local logging = require("logging")
 
 ----------------------- new
 
@@ -87,8 +88,9 @@ local function networkDriver()
         drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
 
         local eventHandler = {} -- Event Handers for the drivers to enable uplayer communication
-        -- eventHandler.debug = logger.log -- DEBUG ENABLED
-        eventHandler.debug = function()end
+
+        eventHandler.debug = logging.getLogger(file).log -- DEBUG ENABLED
+        -- eventHandler.debug = function()end
 
         --[[
             For the driver to register a new interface upon detection
