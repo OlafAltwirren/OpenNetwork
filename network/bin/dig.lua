@@ -48,7 +48,7 @@ local state, reason = pcall(function()
                     timeOutString = tostring(timeOut)
                 end
             end
-            print(" " .. authorativeFlag .. " " .. fillText(domainName, 20) .. "   " .. cacheStruct.interface .. "  " .. fillText(, 5))
+            print(" " .. authorativeFlag .. " " .. fillText(domainName, 20) .. "   " .. cacheStruct.interface .. "  " .. fillText(timeOutString, 8))
         end
         print(" -- *=authorative")
     else
