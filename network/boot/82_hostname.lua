@@ -15,7 +15,7 @@ event.listen("network_ready", function()
         end
 
         -- load config
-        local hostnameConfig = libconfig.loadConfig("inp.cfg", defaultHostnameConfig)
+        local hostnameConfig = fileconfig.loadConfig("inp.json", defaultHostnameConfig)
 
         -- process config
 
