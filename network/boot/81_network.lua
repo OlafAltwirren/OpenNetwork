@@ -269,6 +269,7 @@ local function networkDriver()
             error("Destination unknown. Unable to send there.")
         else
             local sendingInterfaceUUID = topologyTable[destinationUUID].via
+            logger.log("Sending Frame from "..sendingInterfaceUUID.." to "..destinationUUID)
             interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].handler, sendingInterfaceUUID, destinationUUID, data)
         end
     end
