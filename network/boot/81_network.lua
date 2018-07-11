@@ -279,9 +279,6 @@ local function networkDriver()
         end
     end
 
-    logger.log("Layer 1 Networking stack initiated.")
-    -- startNetwork()    
-    computer.pushSignal("network_ready") -- maybe L1_ready
 
     -- Topology updating timertick
     event.timer(10, function()
@@ -320,6 +317,10 @@ local function networkDriver()
     network.core.setCallback("getTopologyTable", getTopologyTable)
     network.core.setCallback("getInterfaces", getInterfaces)
     network.core.setCallback("sendFrame", sendFrame)
+
+    logger.log("Layer 1 Networking stack initiated.")
+    -- startNetwork()
+    computer.pushSignal("network_ready") -- maybe L1_ready
 end
 
 
