@@ -27,24 +27,23 @@ local function verbose(...)
     end
 end
 
-print("DIG for " .. args[1])
-
 local state, reason = pcall(function()
     if options.l or options.list then
         print(" Cache content of this node:")
         for domainName, cacheStruct in pairs(network.inp.getNameCache()) do
             local authorativeFlag = " "
             if cacheStruct.authorative then authorativeFlag = "*" end
-            print(" " .. authorativeFlag .. " " .. fillText(domainName, 10) .. "   " .. cacheStruct.interface .. "  " .. fillText(tostring(os.time() - cacheStruct.lastSeen), 5))
+            print(" " .. authorativeFlag .. " " .. fillText(domainName, 20) .. "   " .. cacheStruct.interface .. "  " .. fillText(tostring(os.time() - cacheStruct.lastSeen), 5))
         end
         print(" -- *=authorative")
-    end
-
-    local interfaceUUID = network.inp.getInterfaceForDomainName(args[1])
-    if interfaceUUID then
-        print(" Found " .. args[1] .. " -> " .. interfaceUUID)
     else
-        print(" Unknown host " .. args[1])
+        print("DIG for " .. args[1])
+        local interfaceUUID = network.inp.getInterfaceForDomainName(args[1])
+        if interfaceUUID then
+            print(" Found " .. args[1] .. " -> " .. interfaceUUID)
+        else
+            print(" Unknown host " .. args[1])
+        end
     end
 end)
 

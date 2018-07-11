@@ -111,7 +111,7 @@ end
 local function encodeSTTI(destinationUUID, pathCost, viaUUID, gatewayUUID, type, lastSeen)
     --[pathCost-byte][destinationUUID.len-byte][destinationUUID][viaUUID.len-byte][viaUUID][gatewayUUID.len-byte][gatewayUUID][type.len-byte]{type][lastSeen.len-byte][lastSeen]
     local lastSeenStr = tostring(lastSeen)
-    local composedData = toByte(pathCost) .. toByte(destinationUUID:len()) .. destinationUUID .. toByte(viaUUID:len()) .. viaUUID .. toByte(gatewayUUID:len()) .. gatewayUUID .. toByte(type:len()) .. type ..toByte(lastSeenStr:len()) .. lastSeenStr
+    local composedData = toByte(math.floor(pathCost+0.5)) .. toByte(destinationUUID:len()) .. destinationUUID .. toByte(viaUUID:len()) .. viaUUID .. toByte(gatewayUUID:len()) .. gatewayUUID .. toByte(type:len()) .. type ..toByte(lastSeenStr:len()) .. lastSeenStr
 
     return composedData
 end
