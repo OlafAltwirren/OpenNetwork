@@ -1,6 +1,5 @@
 fileconfig = {}
 local filesystem = require("filesystem")
-local logger = require("logging").getLogger("config")
 local json = require("json")
 
 --[[
@@ -45,15 +44,11 @@ end
  ]]
 function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
     -- Try to load configuration file
-    logger.log("Loading from file /etc/"..configFileName)
     local fileContent = readAll("/etc/" .. configFileName)
     -- Fill in defaults.
     local loadedConfigurationTable = defaultConfigurationTable
     if fileContent then
-        logger.log("Got content at "..fileContent)
         loadedConfigurationTable = json.decode(fileContent)
-        logger.log("Decoded from JSON as ")
-        logger.log(loadedConfigurationTable)
     end
     -- Generate config file if it didn't exist.
     if not filesystem.exists("/etc/" .. configFileName) then
