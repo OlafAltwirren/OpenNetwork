@@ -52,7 +52,8 @@ function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
     if fileContent then
         logger.log("Got content at "..fileContent)
         loadedConfigurationTable = json.decode(fileContent)
-        logger.log("Decoded from JSON as "..loadedConfigurationTable)
+        logger.log("Decoded from JSON as ")
+        logger.log(loadedConfigurationTable)
     end
     -- Generate config file if it didn't exist.
     if not filesystem.exists("/etc/" .. configFileName) then
