@@ -15,11 +15,13 @@ event.listen("network_ready", function()
         end
 
         -- load config
+        logger.log("Loading INP configuration...")
         local hostnameConfig = fileconfig.loadConfig("inp.json", defaultHostnameConfig)
 
         -- process config
 
         for interfaceUUID in pairs(hostnameConfig) do
+            logger.log("Binding hostnames for interface "..interfaceUUID)
             for domainName in pairs(hostnameConfig[interfaceUUID]) do
                 logger.log("Binding "..domainName.." to interface "..interfaceUUID) -- TOOD use eth0 or such instead of UUID
                 network.inp.bindDomainName(domainName, interfaceUUID)
