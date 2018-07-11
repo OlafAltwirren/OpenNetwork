@@ -160,6 +160,13 @@ end
 --[[
     TODO
  ]]
+function network.inp.getMaxCacheAge()
+    return internal.inp.maxNameAge
+end
+
+--[[
+    TODO
+ ]]
 function network.inp.getNameCache()
     return internal.inp.nameCache
 end

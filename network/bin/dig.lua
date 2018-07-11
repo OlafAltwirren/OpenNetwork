@@ -36,8 +36,19 @@ local state, reason = pcall(function()
         print(" Cache content of this node:")
         for domainName, cacheStruct in pairs(network.inp.getNameCache()) do
             local authorativeFlag = " "
-            if cacheStruct.authorative then authorativeFlag = "*" end
-            print(" " .. authorativeFlag .. " " .. fillText(domainName, 20) .. "   " .. cacheStruct.interface .. "  " .. fillText(tostring(os.time() - cacheStruct.lastSeen), 5))
+            local timeOut = os.time() - cacheStruct.lastSeen
+            local timeOutString
+            if cacheStruct.authorative then
+                authorativeFlag = "*"
+                timeOutString = ""
+            else
+                if timeOut > network.inp.getMaxCacheAge() then
+                    timeOutString = "outdated"
+                else
+                    timeOutString = tostring(timeOut)
+                end
+            end
+            print(" " .. authorativeFlag .. " " .. fillText(domainName, 20) .. "   " .. cacheStruct.interface .. "  " .. fillText(, 5))
         end
         print(" -- *=authorative")
     else
