@@ -1,5 +1,5 @@
 local libLayer1network = require("libLayer1network")
-local libconfig = require("libconfig")
+local fileconfig = require("fileconfig")
 local event = require("event")
 local computer = require("computer")
 local logger = require("logging").getLogger("hostname")

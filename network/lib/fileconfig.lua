@@ -1,4 +1,4 @@
-libconfig = {}
+fileconfig = {}
 local filesystem = require("filesystem")
 
 --[[
@@ -22,13 +22,17 @@ print(conf["cfgString"])
 <i>string value</i>
 </p>
 --]]
-function libconfig.loadConfig(configFileName, defaultConfigurationTable)
-    -- Try to load user settings.
-    local loadedConfigurationTable = {}
-    local configHandle = loadfile("/etc/" .. configFileName, nil, loadedConfigurationTable)
-    if configHandle then
-        pcall(configHandle)
-    end
+
+local function readAll(file)
+    local f = assert(io.open(file, "rb"))
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
+    -- Try to load configuration file
+    local loadedConfigurationTable = readAll("/etc/" .. configFileName)
     -- Fill in defaults.
     loadedConfigurationTable = loadedConfigurationTable or defaultConfigurationTable
     -- Generate config file if it didn't exist.
@@ -53,7 +57,7 @@ end
 ---
 -- Saves given config by overwriting/creating given file
 -- Returns saved config
-function libconfig.saveConfig(configFile, config)
+function fileconfig.saveConfig(configFile, config)
     if config then
         local root = filesystem.get("/")
         if root and not root.isReadOnly() then
@@ -71,4 +75,4 @@ function libconfig.saveConfig(configFile, config)
     return config
 end
 
-return libconfig
+return fileconfig
