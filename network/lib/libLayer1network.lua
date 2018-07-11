@@ -127,6 +127,8 @@ function libLayer1network.inp.bindDomainName(domainName, interfaceUUID)
         internal.inp.interfaceTable[interfaceUUID] = {}
     end
     internal.inp.interfaceTable[interfaceUUID][domainName] = {}
+    -- Add to local cache
+    libLayer1network.inp.updateNameCache(domainName, interfaceUUID, true)
 end
 
 --[[
@@ -137,6 +139,8 @@ function libLayer1network.inp.removeInterface(interfaceUUID)
     for domainName in pairs(internal.inp.interfaceTable[interfaceUUID]) do
         internal.inp.logger("Removing domain " .. domainName .. " from interface " .. interfaceUUID)
         internal.inp.nameTable[domainName] = nil
+        -- Also clear cache
+        internal.inp.nameCache[domainName] = nil
     end
     internal.inp.interfaceTable[interfaceUUID] = nil
 end
@@ -144,12 +148,14 @@ end
 --[[
     TODO
  ]]
-function libLayer1network.inp.updateNameCache(domainName, interfaceUUID)
+function libLayer1network.inp.updateNameCache(domainName, interfaceUUID, authorative)
     internal.inp.nameCache[domainName] = {
         interface = interfaceUUID,
-        lastSeen = os.time()
+        lastSeen = os.time(),
+        authorative = authorative
     }
 end
+
 
 --[[
     TODO
@@ -157,9 +163,9 @@ end
  ]]
 function libLayer1network.inp.getInterfaceForDomainName(domainName)
     if internal.inp.nameCache[domainName] then
-        if of.time() - internal.inp.nameCache[domainName].lastSeen < internal.inp.maxNameAge then
+        if of.time() - internal.inp.nameCache[domainName].lastSeen < internal.inp.maxNameAge or nternal.inp.nameCache[domainName].authorative then
             -- return cached name
-            return internal.inp.nameCache[domainName]
+            return internal.inp.nameCache[domainName].interface
         end
     end
     -- try to resolve name
@@ -193,7 +199,7 @@ function internal.inp.handle(sourceUUID, interfaceUUID, data)
         local matcher = data:sub(3):gmatch("[^:]+")
         local domainName = matcher()
         local foundInterfaceUUID = matcher()
-        libLayer1network.inp.updateNameCache(domainName, foundInterfaceUUID)
+        libLayer1network.inp.updateNameCache(domainName, foundInterfaceUUID, false)
         internal.icmp.logger.log("INP received name-found for " .. domainName .. " as " .. foundInterfaceUUID)
         computer.pushSignal("inp_name_found", domainName, foundInterfaceUUID)
     end
