@@ -289,15 +289,15 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             eventHnd.debug("PT Destination " .. destinationUUID .. " not known to this node. TODO")
             return
         else
-            if topologyForDestination.mode == "direct" then
-                -- we can directly send to the destination
-                eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
-                sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
-            else
+          --  if topologyForDestination.mode == "direct" then
+          --      -- we can directly send to the destination
+          --      eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
+          --      sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
+          --  else
                 -- we have to pass the frame content on
                 eventHnd.debug("PT Pass Through sent on as pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
                 sendPassThrough(eventHnd, topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
-            end
+          --  end
         end
     elseif data:sub(1, 1) == "D" then
         -- Handle D/unicast -> Direct Data for this interface. {sourceInterfaceUUID, destinationInterfaceUUID, data}
