@@ -1,5 +1,6 @@
 fileconfig = {}
 local filesystem = require("filesystem")
+local json = require("json")
 
 --[[
 Loads configuration.<br>
@@ -32,20 +33,17 @@ end
 
 function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
     -- Try to load configuration file
-    local loadedConfigurationTable = readAll("/etc/" .. configFileName)
+    local loadedConfigurationTable = json.decode(readAll("/etc/" .. configFileName))
     -- Fill in defaults.
     loadedConfigurationTable = loadedConfigurationTable or defaultConfigurationTable
     -- Generate config file if it didn't exist.
-    if not configHandle then
+    if not filesystem.exists("/etc/" .. configFileName) then
         local rootDirectory = filesystem.get("/")
         if rootDirectory and not rootDirectory.isReadOnly() then
             filesystem.makeDirectory("/etc")
             local f = io.open("/etc/" .. configFileName, "w")
             if f then
-                local serialization = require("serialization")
-                for k, v in pairs(defaultConfigurationTable) do
-                    f:write(k .. "=" .. tostring(serialization.serialize(v, math.huge)) .. "\n")
-                end
+                f:write(json.encode(loadedConfigurationTable))
                 f:close()
             end
         end
@@ -57,22 +55,19 @@ end
 ---
 -- Saves given config by overwriting/creating given file
 -- Returns saved config
-function fileconfig.saveConfig(configFile, config)
-    if config then
+function fileconfig.saveConfig(configFile, configurationTable)
+    if configurationTable then
         local root = filesystem.get("/")
         if root and not root.isReadOnly() then
             filesystem.makeDirectory("/etc")
             local f = io.open("/etc/" .. configFile, "w")
             if f then
-                local serialization = require("serialization")
-                for k, v in pairs(config) do
-                    f:write(k .. "=" .. tostring(serialization.serialize(v, math.huge)) .. "\n")
-                end
+                f:write(json.encode(configurationTable))
                 f:close()
             end
         end
     end
-    return config
+    return configurationTable
 end
 
 return fileconfig
