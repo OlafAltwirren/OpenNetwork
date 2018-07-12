@@ -37,52 +37,6 @@ local eventHnd
 
 ------------------------------- Internal functions -----------------------------
 
-
---[[
-    TODO
- ]]
-local function sendDirect(handle, interfaceUUID, destinationUUID, data)
-    if interfaces[interfaceUUID] then
-        if interfaceUUID == destinationUUID then
-            -- Update statistics
-            interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
-            interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + data:len()
-            interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + 1
-            interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + data:len()
-            -- Route data back to self
-            handle.recvData(data, interfaceUUID, destinationUUID)
-        elseif tunnelPartnerUUID == destinationUUID then
-            -- Update statistics
-            interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
-            interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
-            -- Send data to destination via source
-            component.invoke(interfaceUUID, "send", "D" .. data)
-        else
-            eventHnd.debug("Unable to send to "..destinationUUID.." on tunnel "..interfaceUUID..". Tunnel only knows "..tunnelPartnerUUID)
-        end
-    end
-end
-
---[[
-    TODO
- ]]
-local function sendPassThrough(handle, interfaceUUID, destinationUUID, data)
-    if interfaces[interfaceUUID] then
-        if interfaceUUID == destinationUUID then
-            -- TODO ERROR may not happen
-            handle.debug("ERROR. Trying to pass through from same interface to gateway. May be an invalid topology table")
-        elseif tunnelPartnerUUID == destinationUUID then
-            -- Update statistics
-            interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
-            interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
-            -- Send data to destination via source
-            component.invoke(interfaceUUID, "send", "P" .. data)
-        else
-            eventHnd.debug("Unable to send to "..destinationUUID.." on tunnel "..interfaceUUID..". Tunnel only knows "..tunnelPartnerUUID)
-        end
-    end
-end
-
 local toByte = string.char
 
 local function sizeToString(size)
@@ -119,20 +73,6 @@ local function encodeSTTI(destinationUUID, pathCost, viaUUID, gatewayUUID, type,
     local composedData = toByte(pathCost) .. toByte(destinationUUID:len()) .. destinationUUID .. toByte(viaUUID:len()) .. viaUUID .. toByte(gatewayUUID:len()) .. gatewayUUID .. toByte(type:len()) .. type ..toByte(lastSeenStr:len()) .. lastSeenStr
 
     return composedData
-end
-
---[[
-    TODO
- ]]
-local function decodePassThroughFrame(data)
-    --[ttl-byte][originalSourceUUID.len-byte][originalSourceUUID][destinationUUID.len-byte][destinationUUID]passThroughData
-
-    local ttl = data:byte(2)
-    local originalSourceUUID, originalSourceUUIDlen = readSizeStr(data, 3)
-    local destinationUUID, destinationUUIDlen = readSizeStr(data, 3 + originalSourceUUIDlen)
-    local passThroughData = data:sub(3 + originalSourceUUIDlen + destinationUUIDlen)
-
-    return originalSourceUUID, destinationUUID, ttl, passThroughData
 end
 
 --[[
@@ -191,6 +131,23 @@ function driver.start(layer1eventHandler)
     -- TODO register for component add and remove
 
     return {}
+end
+
+--[[
+    TODO
+ ]]
+function driver.updatePacketStats(interfaceUUID, pktIn, bytesIn, pktOut, bytesOut)
+    interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + pktOut
+    interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + bytesOut
+    interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + pktIn
+    interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + bytesIn
+end
+
+--[[
+    TODO
+ ]]
+function driver.rawSend(interfaceUUID, destinationUUID, data)
+    component.invoke(interfaceUUID, "send", data)
 end
 
 --[[
@@ -275,11 +232,11 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
                 -- we can directly send to the destination
                 eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                 -- sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
-                sendPassThrough(eventHnd, topologyForDestination.via, destinationUUID, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
+                eventHnd.sendPassThrough(topologyForDestination.via, destinationUUID, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
             else
                 -- we have to pass the frame content on
                 eventHnd.debug("PT Pass Through sent on as pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
-                sendPassThrough(eventHnd, topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
+                eventHnd.sendPassThrough(topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
             end
         end
     elseif data:sub(1, 1) == "D" then
@@ -287,6 +244,20 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         eventHnd.debug("Received data on " .. interfaceUUID.. " from "..partnerUUID)
         eventHnd.recvData(data:sub(2), interfaceUUID, partnerUUID)
     end
+end
+
+--[[
+    TODO
+ ]]
+function driver.decodePassThroughFrame(data)
+    --[ttl-byte][originalSourceUUID.len-byte][originalSourceUUID][destinationUUID.len-byte][destinationUUID]passThroughData
+
+    local ttl = data:byte(2)
+    local originalSourceUUID, originalSourceUUIDlen = readSizeStr(data, 3)
+    local destinationUUID, destinationUUIDlen = readSizeStr(data, 3 + originalSourceUUIDlen)
+    local passThroughData = data:sub(3 + originalSourceUUIDlen + destinationUUIDlen)
+
+    return originalSourceUUID, destinationUUID, ttl, passThroughData
 end
 
 --[[
@@ -343,11 +314,11 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                     -- we can directly send to the destination
                     handle.debug("Sending directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                     -- sendDirect(handle, topologyForDestination.via, destinationUUID, data)
-                    sendDirect(handle, topologyForDestination.via, destinationUUID, data)
+                    handle.sendDirect(topologyForDestination.via, destinationUUID, data)
                 else
                     -- we have to pass the frame content on
                     handle.debug("Sending pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
-                    sendPassThrough(handle, topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
+                    handle.sendPassThrough(topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
                 end
             end
         end

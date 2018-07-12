@@ -160,6 +160,60 @@ local function networkDriver()
             return topologyTable[destinationUUID]
         end
 
+
+        --[[
+            Internal method, handling sending of a frame from this interface to another, directly reachable interface.
+            TODO
+         ]]
+        function eventHandler.sendDirect(interfaceUUID, destinationUUID, data)
+            -- get interface, able to handle sending from interfaceUUID
+            if interfaces[interfaceUUID] then
+                if interfaceUUID == destinationUUID then
+                    -- Update statistics
+                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
+                    -- Route data back to self
+                    eventHandler.debug("Sending data via loopback on " .. interfaceUUID)
+                    eventHandler.recvData(data, destinationUUID, interfaceUUID)
+                else
+                    -- Update statistics
+                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
+                    -- Send data to destination via source
+                    eventHandler.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
+                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "D"..data)
+                    -- component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "D" .. data)
+                end
+            end
+        end
+
+        --[[
+            Internal method, handling sending of pass-through frames, Those may be eigther that the destination isnt' the sending target or also when the sending source was not the original senderUUID.
+            TODO
+         ]]
+        function eventHandler.sendPassThrough(interfaceUUID, destinationUUID, data)
+            if interfaces[interfaceUUID] then
+                if interfaceUUID == destinationUUID then
+                    -- sending to own interface, yet need to decode pass-through correctly
+                    -- Update statistics
+                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
+
+                    -- Decode passthrough frame
+                    local originalSourceUUID, originalDestinationUUID, ttl, passThroughData = interfaces[interfaceUUID].driver.driver.decodePassThroughFrame(data)
+
+                    -- Route data back to self
+                    eventHandler.debug("Sending pass-through received data via loopback on " .. interfaceUUID)
+                    eventHandler.recvData(passThroughData, originalDestinationUUID, originalSourceUUID)
+                else
+                    -- Update statistics
+                    interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
+                    interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
+                    -- Send data to destination via source
+                    eventHandler.debug("Sending P data via " .. interfaceUUID .. " to " .. destinationUUID)
+                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "P"..data)
+                    -- component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "P" .. data)
+                end
+            end
+        end
+
         --[[
             Update of the topology from the network.
 
