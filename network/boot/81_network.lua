@@ -28,10 +28,10 @@ local topologyTableUpdated = false
 }
 
 -- Accessible via gateway. Send Frame via "sourceUUID" to "gatewayUUID" as routed Frame with destination "destinationUUID2"
-topologyTable["destinationUUID2"] = {
-    mode = "bridged",
-    via = "sourceUUID",
-    gateway = "gatewayUUID",
+topologyTable["destinationUUID2"] = {  destinationUUID:string - final destination of the interfaceUUID
+    mode = "bridged", - "bridged","direct","loop" - "bridged", when this interfaceis not directly reachable by this interface. "direct" when the destinationUUID is directly reachable via this interfaceUUID
+    via = "sourceUUID", - via:string - the interfaceUUID through which the fame shall be sent to reach  the destinationUUID. This interface needs to be local to this node.
+    gateway = "gatewayUUID", gateway:string - the interfaceUUID to which the frame shall be sent to reach its final destination.
     lastSeen = os.time(),
     pathCost = 429
 }
@@ -73,8 +73,8 @@ local function networkDriver()
     end
     initiated = true
 
-    local computer = require "computer"
-    local filesystem = require "filesystem"
+    local computer = require("computer")
+    local filesystem = require("filesystem")
 
     --DRIVER INIT
     logger.log("Loading drivers...")
@@ -110,10 +110,10 @@ local function networkDriver()
 
             -- Add self reference to topology. this essentially is a loopback interface
             topologyTable[sourceUUID] = {
-                mode = "direct",
+                mode = "loop",
                 via = sourceUUID,
                 gateway = "",
-                lastSeen = os.time(), -- TODO needs to always be valid
+                lastSeen = os.time(),
                 pathCost = 0
             }
         end
@@ -192,9 +192,9 @@ local function networkDriver()
             -- get existing entry from topology
             if topologyTable[destinationUUID] then
                 if topologyTable[destinationUUID].pathCost > pathCost + distance then
+                    -- Old path is more expensive, so update with new path
                     local oldPathCost = topologyTable[destinationUUID].pathCost
 
-                    -- Old path is more expensive, so update with new path
                     if destinationUUID == senderInterfaceUUID then
                         topologyTable[destinationUUID] = {
                             mode = "direct",
@@ -271,8 +271,11 @@ local function networkDriver()
             error("Destination unknown. Unable to send there.")
         else
             local sendingInterfaceUUID = topologyTable[destinationUUID].via
-            logger.log("Sending Frame from "..sendingInterfaceUUID.." to "..destinationUUID)
-            interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].handler, sendingInterfaceUUID, destinationUUID, data)
+            logger.log("Sending Frame from " .. sendingInterfaceUUID .. " to " .. destinationUUID)
+            interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].handler, -- handler for callbacks / this one
+                sendingInterfaceUUID, -- interface where to send from
+                destinationUUID, -- final destinationUUID, the driver decided wether this is direct or needs to be routed
+                data)
         end
     end
 

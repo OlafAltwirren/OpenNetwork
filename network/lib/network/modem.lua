@@ -38,6 +38,7 @@ local eventHnd
 
 
 --[[
+    Internal method, handling sending of a frame from this interface to another, directly reachable interface.
     TODO
  ]]
 local function sendDirect(handle, interfaceUUID, destinationUUID, data)
@@ -49,18 +50,21 @@ local function sendDirect(handle, interfaceUUID, destinationUUID, data)
             interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + 1
             interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + data:len()
             -- Route data back to self
+            eventHnd.debug("Sending data via loopback on " .. interfaceUUID)
             handle.recvData(data, interfaceUUID, destinationUUID)
         else
             -- Update statistics
             interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
             interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
             -- Send data to destination via source
+            eventHnd.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
             component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "D" .. data)
         end
     end
 end
 
 --[[
+    Internal method, handling sending of pass-through frames, Those may be eigther that the destination isnt' the sending target or also when the sending source was not the original senderUUID.
     TODO
  ]]
 local function sendPassThrough(handle, interfaceUUID, destinationUUID, data)
@@ -73,6 +77,7 @@ local function sendPassThrough(handle, interfaceUUID, destinationUUID, data)
             interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
             interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
             -- Send data to destination via source
+            eventHnd.debug("Sending P data via " .. interfaceUUID .. " to " .. destinationUUID)
             component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "P" .. data)
         end
     end
@@ -222,9 +227,18 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", os.time(), true)
+        eventHnd.updateTopology(interfaceUUID, -- where was it received
+            sourceUUID, -- who send the frame
+            pathCost, -- how expensice was sending this to here?
+            sourceUUID, -- who sent it
+            0, -- what is the destinations's path cost so far
+            "", -- what is the gatewayUUID to be used to read the destinationUUID, none in this case, as we can directly reach it.
+            interfaceUUID, -- what is the interface to send via
+            "direct", -- mode of sending data to this destination
+            os.time(), -- last seen is now
+            true) -- force an update, becasue a beacon refreshes the timestamp of this interface
     elseif data:sub(1, 1) == "B" then
-        -- Handle B/broadcast -> Beacon message, telling the others this interface is still there. {sourceUUID}
+        -- Handle B/broadcast -> Join message, telling the others this interface is still there. {sourceUUID}
         eventHnd.debug("Beacon Message Received from " .. sourceUUID .. ", distance " .. distance)
 
         local pathCost
@@ -236,26 +250,34 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             pathCost = 5
         end
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sourceUUID, 0, "", interfaceUUID, "direct", os.time(), true)
+        eventHnd.updateTopology(interfaceUUID, -- where was it received
+            sourceUUID, -- who send the frame
+            pathCost,  -- how expensice was sending this to here?
+            sourceUUID, -- who sent it
+            0, -- what is the destinations's path cost so far
+            "", -- what is the gatewayUUID to be used to read the destinationUUID, none in this case, as we can directly reach it.
+            interfaceUUID, -- what is the interface to send via
+            "direct", -- mode of sending data to this destination
+            os.time(), -- last seen is now
+            true) -- force an update, becasue a beacon refreshes the timestamp of this interface
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
+
+        local pathCost
+        if (distance > 0) then
+            -- wireless message
+            pathCost = 10 + math.floor(distance + 0.5)
+        else
+            -- wired message
+            pathCost = 5
+        end
 
         local compountSTTI = data:sub(2)
         while compountSTTI:len() > 0 do
             local sttiDestinationUUID, sttiPathCost, sttiViaUUID, sttiGatewayUUID, sttiType, lastSeen, length = decodeSTTI(compountSTTI)
             -- eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
             compountSTTI = compountSTTI:sub(length)
-
-            local pathCost
-            if (distance > 0) then
-                -- wireless message
-                pathCost = 10 + math.floor(distance + 0.5)
-            else
-                -- wired message
-                pathCost = 5
-            end
-
             eventHnd.updateTopology(interfaceUUID, sourceUUID, pathCost, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType, lastSeen, false)
         end
 
