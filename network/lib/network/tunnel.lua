@@ -271,7 +271,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
             eventHnd.debug("PT Destination " .. destinationUUID .. " not known to this node. TODO")
             return
         else
-            if topologyForDestination.mode == "direct" and topologyForDestination.via == interfaceUUID then
+            if topologyForDestination.mode == "direct"  then -- WAS
                 -- we can directly send to the destination
                 eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                 -- sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
@@ -339,7 +339,7 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                 handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
                 return
             else
-                if topologyForDestination.mode == "direct" and topologyForDestination.via == interfaceUUID then
+                if topologyForDestination.mode == "direct" then --WAS  and topologyForDestination.via == interfaceUUID
                     -- we can directly send to the destination
                     handle.debug("Sending directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                     -- sendDirect(handle, topologyForDestination.via, destinationUUID, data)
