@@ -179,7 +179,7 @@ local function networkDriver()
                     interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
                     -- Send data to destination via source
                     eventHandler.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
-                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "D"..data)
+                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "D" .. data)
                     -- component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "D" .. data)
                 end
             end
@@ -208,7 +208,7 @@ local function networkDriver()
                     interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
                     -- Send data to destination via source
                     eventHandler.debug("Sending P data via " .. interfaceUUID .. " to " .. destinationUUID)
-                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "P"..data)
+                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "P" .. data)
                     -- component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "P" .. data)
                 end
             end
@@ -325,7 +325,7 @@ local function networkDriver()
             error("Destination unknown. Unable to send there.")
         else
             local sendingInterfaceUUID = topologyTable[destinationUUID].via
-            logger.log("Sending Frame from " .. sendingInterfaceUUID .. " to " .. destinationUUID)
+            logger.log("Sending Frame from " .. sendingInterfaceUUID .. " to " .. destinationUUID .. ", proto:" .. data:sub(1, 1))
             interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].handler, -- handler for callbacks / this one
                 sendingInterfaceUUID, -- interface where to send from
                 destinationUUID, -- final destinationUUID, the driver decided wether this is direct or needs to be routed
