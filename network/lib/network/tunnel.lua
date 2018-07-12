@@ -196,38 +196,38 @@ end
 --[[
     Handling all incoming modem_message events and decide that to do with them.
  ]]
-function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance, data)
+function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
     -- Not a known interface this message is from. Ignore it.
     if not interfaces[interfaceUUID] then
         return
     end
 
-    eventHnd.debug("Incoming Frame on " .. interfaceUUID .. " from " .. sourceUUID .. ", distance " .. distance)
+    eventHnd.debug("Incoming tunneled frame on " .. interfaceUUID .. " from " .. partnerUUID)
 
     interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + 1
     interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + data:len()
 
     if data:sub(1, 1) == "J" then
         -- Handle J/unicast -> Join message of an interface to the topology {sourceUUID}
-        eventHnd.debug("Join Message Received from " .. sourceUUID .. ", distance " .. distance)
+        eventHnd.debug("Join Message Received from partner " .. partnerUUID)
 
         -- Set partner of tunnel
-        tunnelPartnerUUID = sourceUUID
+        tunnelPartnerUUID = partnerUUID
 
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, 0, sourceUUID, 0, "", interfaceUUID, "direct", os.time(), true)
+        eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, "", interfaceUUID, "direct", os.time(), true)
     elseif data:sub(1, 1) == "B" then
         -- Handle B/unicast-> Beacon message, telling the others this interface is still there. {sourceUUID}
-        eventHnd.debug("Beacon Message Received from " .. sourceUUID .. ", distance " .. distance)
+        eventHnd.debug("Beacon Message Received from " .. partnerUUID)
 
         -- Set partner of tunnel
-        tunnelPartnerUUID = sourceUUID
+        tunnelPartnerUUID = partnerUUID
 
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, sourceUUID, 0, sourceUUID, 0, "", interfaceUUID, "direct", os.time(), true)
+        eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, "", interfaceUUID, "direct", os.time(), true)
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
-        eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
+        eventHnd.debug("STTI Message Received from " .. partnerUUID)
 
         local compountSTTI = data:sub(2)
         while compountSTTI:len() > 0 do
@@ -235,26 +235,26 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
             -- eventHnd.debug("Decoded STTI for "..sttiDestinationUUID)
             compountSTTI = compountSTTI:sub(length)
 
-            eventHnd.updateTopology(interfaceUUID, sourceUUID, 0, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType, lastSeen, false)
+            eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, sttiDestinationUUID, sttiPathCost, sttiGatewayUUID, sttiViaUUID, sttiType, lastSeen, false)
         end
     elseif data:sub(1, 1) == "L" then
         -- Handle L/unicast -> Leave message of an interface from the topology {sourceInterfaceUUID}
-        eventHnd.debug("Leave Message Received from " .. sourceUUID)
+        eventHnd.debug("Leave Message Received from " .. partnerUUID)
 
         -- Remove partner of tunnel
         tunnelPartnerUUID = ""
 
-        eventHnd.partFromTopology(interfaceUUID, sourceUUID)
+        eventHnd.partFromTopology(interfaceUUID, partnerUUID)
     elseif data:sub(1, 1) == "P" then
         -- Handle P/unicast -> Passthrough message of a Frame to be passed on {sourceInterfaceUUID, senderInterfaceUUID, destinationUUID, ttl, data}
-        eventHnd.debug("Received pass-through on " .. interfaceUUID.. " from "..sourceUUID)
+        eventHnd.debug("Received pass-through on " .. interfaceUUID.. " from "..partnerUUID)
 
         -- Decode passthrough frame
         local originalSourceUUID, destinationUUID, ttl, passThroughData = decodePassThroughFrame(data)
 
         -- in case we are the destination, give the data to the upper layer
         if interfaces[destinationUUID] then
-            eventHnd.debug("PT Received data on " .. interfaceUUID.. " as pass-through from "..sourceUUID)
+            eventHnd.debug("PT Received data on " .. interfaceUUID.. " as pass-through from "..originalSourceUUID)
             eventHnd.recvData(passThroughData, destinationUUID, originalSourceUUID)
         end
 
@@ -271,7 +271,7 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
             eventHnd.debug("PT Destination " .. destinationUUID .. " not known to this node. TODO")
             return
         else
-            if topologyForDestination.mode == "direct" then
+            if topologyForDestination.mode == "direct" and topologyForDestination.via == interfaceUUID then
                 -- we can directly send to the destination
                 eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                 -- sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
@@ -284,8 +284,8 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
         end
     elseif data:sub(1, 1) == "D" then
         -- Handle D/unicast -> Direct Data for this interface. {sourceInterfaceUUID, destinationInterfaceUUID, data}
-        eventHnd.debug("Received data on " .. interfaceUUID.. " from "..sourceUUID)
-        eventHnd.recvData(data:sub(2), interfaceUUID, sourceUUID)
+        eventHnd.debug("Received data on " .. interfaceUUID.. " from "..partnerUUID)
+        eventHnd.recvData(data:sub(2), interfaceUUID, partnerUUID)
     end
 end
 
@@ -339,9 +339,10 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                 handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
                 return
             else
-                if topologyForDestination.mode == "direct" then
+                if topologyForDestination.mode == "direct" and topologyForDestination.via == interfaceUUID then
                     -- we can directly send to the destination
                     handle.debug("Sending directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
+                    -- sendDirect(handle, topologyForDestination.via, destinationUUID, data)
                     sendDirect(handle, topologyForDestination.via, destinationUUID, data)
                 else
                     -- we have to pass the frame content on

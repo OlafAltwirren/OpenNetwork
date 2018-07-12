@@ -289,7 +289,7 @@ function driver.handleModelMessage(_, interfaceUUID, sourceUUID, port, distance,
             eventHnd.debug("PT Destination " .. destinationUUID .. " not known to this node. TODO")
             return
         else
-            if topologyForDestination.mode == "direct" then
+            if topologyForDestination.mode == "direct" and topologyForDestination.via == interfaceUUID then
                 -- we can directly send to the destination
                 eventHnd.debug("PT Pass Through sent on as direct pass-through to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                 -- sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
@@ -357,7 +357,7 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                 handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
                 return
             else
-                if topologyForDestination.mode == "direct" then
+                if topologyForDestination.mode == "direct" and topologyForDestination.via == interfaceUUID then
                     -- we can directly send to the destination
                     handle.debug("Sending directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
                     sendDirect(handle, topologyForDestination.via, destinationUUID, data)
