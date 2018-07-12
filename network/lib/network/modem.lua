@@ -151,6 +151,7 @@ end
     TODO
  ]]
 function driver.rawSend(interfaceUUID, destinationUUID, data)
+    eventHnd.debug("RAW SEND on component:modem "..interfaceUUID)
     component.invoke(interfaceUUID, "send", destinationUUID, vLanId, data)
 end
 
@@ -248,7 +249,7 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
         eventHnd.debug("Received pass-through on " .. interfaceUUID .. " from " .. sourceUUID)
 
         -- Decode passthrough frame
-        local originalSourceUUID, destinationUUID, ttl, passThroughData = decodePassThroughFrame(data)
+        local originalSourceUUID, destinationUUID, ttl, passThroughData = driver.decodePassThroughFrame(data)
 
         -- in case we are the destination, give the data to the upper layer
         if interfaces[destinationUUID] then
