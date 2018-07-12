@@ -196,6 +196,8 @@ local function networkDriver()
                     -- Update statistics
                     interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
 
+                    -- TODO Here we send a pass-though to another destination, not necessarily get a passthough.
+
                     -- Decode passthrough frame
                     local originalSourceUUID, originalDestinationUUID, ttl, passThroughData = interfaces[interfaceUUID].driver.driver.decodePassThroughFrame(data)
 
@@ -204,8 +206,7 @@ local function networkDriver()
                     eventHandler.recvData(passThroughData, originalDestinationUUID, originalSourceUUID)
                 else
                     -- Update statistics
-                    interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
-                    interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + 1 + data:len()
+                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
                     -- Send data to destination via source
                     eventHandler.debug("Sending P data via " .. interfaceUUID .. " to " .. destinationUUID)
                     interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "P" .. data)
