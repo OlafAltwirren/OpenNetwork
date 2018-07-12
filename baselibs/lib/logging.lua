@@ -21,7 +21,7 @@ function logging.core.init()
     else
         -- filesystem.rename("/log.txt", "/log.old")
         logging.core.initialized = true
-        logging.core.logFile = io.open("/log.txt", "w")
+        logging.core.logFile = io.open("/tmp/log.txt", "w")
     end
 end
 
