@@ -36,8 +36,13 @@ local function generatePayload()
     return payload
 end
 
+local destinationUUID = findDestinationInterface(args[1])
+if not destinationUUID then
+    return
+end
 
-print("STPING " .. args[1] .. " with " .. tostring(len) .. " bytes of data")
+print("STPING " .. destinationUUID .. " with " .. tostring(len) .. " bytes of data")
+
 
 local stats = {
     transmitted = 0,
@@ -53,12 +58,36 @@ local function doSleep()
     until computer.uptime() >= deadline
 end
 
+function string.starts(String, Start)
+    return string.sub(String, 1, string.len(Start)) == Start
+end
+
+local function findDestinationInterface(searchString)
+    local foundString = nil
+    local foundAmount = 0
+    for destinationUUID in pairs(network.stp.getTopologyTable()) do
+        if string.starts(destinationUUID, searchString) then
+            foundString = destinationUUID
+            foundAmount = foundAmount + 1
+        end
+    end
+    if foundAmount == 1 then
+        return foundString
+    elseif foundAmount == 0 then
+        print("No destination "..searchString.."known. Use STP to list all known destinations.")
+        return nil
+    else
+        print("More then one destinations matching "..searchString..". Be more precise.")
+        return nil
+    end
+end
+
 local function doPing()
 
     local payload = generatePayload()
-    local icmp_seq = network.icmp.ping(args[1], payload)
+    local icmp_seq = network.icmp.ping(destinationUUID, payload)
     stats.transmitted = stats.transmitted + 1
-    verbose(tostring(len) .. " bytes to " .. args[1] .. ": icmp_seq=" .. tostring(icmp_seq))
+    verbose(tostring(len) .. " bytes to " .. destinationUUID .. ": icmp_seq=" .. tostring(icmp_seq))
     local start = computer.uptime()
 
     local deadline = start + (tonumber(options.t) or tonumber(options.droptime) or 8)
@@ -71,7 +100,7 @@ local function doPing()
         verbose(tostring(len) .. " bytes lost: icmp_seq=" .. tostring(icmp_seq))
     elseif inpayload == payload then
         stats.received = stats.received + 1
-        print(tostring(len) .. " bytes from " .. args[1] .. ": icmp_seq=" .. tostring(icmp_seq) .. " time=" .. tostring(round(computer.uptime() - start, 2)) .. " s")
+        print(tostring(len) .. " bytes from " .. destinationUUID .. ": icmp_seq=" .. tostring(icmp_seq) .. " time=" .. tostring(round(computer.uptime() - start, 2)) .. " s")
     else
         stats.malformed = stats.malformed + 1
         verbose(tostring(#inpayload) .. " bytes malformed: icmp_seq=" .. tostring(icmp_seq) .. " time=" .. tostring(round(computer.uptime() - start, 2)) .. " s")
@@ -81,7 +110,7 @@ end
 local begin = computer.uptime()
 
 local function outputStats()
-    print("--- " .. args[1] .. " ping statistics ---")
+    print("--- " .. destinationUUID .. " ping statistics ---")
     print(tostring(stats.transmitted) .. " packets transmitted, "
             .. tostring(stats.received) .. " received, "
             .. tostring(100 - math.floor((stats.received / stats.transmitted) * 100)) .. "% packet loss, time " .. tostring(round(computer.uptime() - begin, 2)))
