@@ -36,28 +36,6 @@ local function generatePayload()
     return payload
 end
 
-local destinationUUID = findDestinationInterface(args[1])
-if not destinationUUID then
-    return
-end
-
-print("STPING " .. destinationUUID .. " with " .. tostring(len) .. " bytes of data")
-
-
-local stats = {
-    transmitted = 0,
-    received = 0,
-    malformed = 0
-}
-
-local function doSleep()
-
-    local deadline = computer.uptime() + (tonumber(options.i) or tonumber(options.interval) or 1)
-    repeat
-        event.pull(deadline - computer.uptime())
-    until computer.uptime() >= deadline
-end
-
 function string.starts(String, Start)
     return string.sub(String, 1, string.len(Start)) == Start
 end
@@ -80,6 +58,28 @@ local function findDestinationInterface(searchString)
         print("More then one destinations matching "..searchString..". Be more precise.")
         return nil
     end
+end
+
+local destinationUUID = findDestinationInterface(args[1])
+if not destinationUUID then
+    return
+end
+
+print("STPING " .. destinationUUID .. " with " .. tostring(len) .. " bytes of data")
+
+
+local stats = {
+    transmitted = 0,
+    received = 0,
+    malformed = 0
+}
+
+local function doSleep()
+
+    local deadline = computer.uptime() + (tonumber(options.i) or tonumber(options.interval) or 1)
+    repeat
+        event.pull(deadline - computer.uptime())
+    until computer.uptime() >= deadline
 end
 
 local function doPing()
