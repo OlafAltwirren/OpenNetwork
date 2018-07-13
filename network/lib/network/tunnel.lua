@@ -323,6 +323,20 @@ function driver.send(handle, interfaceUUID, destinationUUID, data)
                 end
             end
         end
+    else
+        -- not our driver handled interface, marshalling on
+        -- sending pass-through from this interface to the via of the destination
+        local topologyForDestination = handle.getTopologyInformation(destinationUUID)
+
+        if not topologyForDestination then
+            -- Unknown destination, no knowledge where to send it to...
+            handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
+            return
+        else
+            -- we have to pass the frame content on
+            handle.debug("Sending pass-through to " .. topologyForDestination.via.. ", via " .. interfaceUUID)
+            handle.sendPassThrough(interfaceUUID, topologyForDestination.via, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
+        end
     end
 end
 

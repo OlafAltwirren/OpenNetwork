@@ -6,19 +6,19 @@ local logging = require("logging")
 local driver = {}
 
 -- public functions
-local network = {}
+local libLayer1network = {}
 local internal = {}
 
 ------------
 -- Core communication
-network.core = {}
+libLayer1network.core = {}
 
-function network.core.setCallback(name, fn)
+function libLayer1network.core.setCallback(name, fn)
     driver[name] = fn
 end
 
-function network.core.lockCore()
-    network.core = nil
+function libLayer1network.core.lockCore()
+    libLayer1network.core = nil
 end
 
 ------------
@@ -27,11 +27,11 @@ end
 ------------
 -- STP - Spanning Tree Protocol
 
-network.stp = {}
+libLayer1network.stp = {}
 internal.stp = {}
 
 
-function network.stp.getTopologyTable()
+function libLayer1network.stp.getTopologyTable()
     if not driver.getTopologyTable then
         print("Layer1 Network demon not loaded.")
         return {}
@@ -40,7 +40,7 @@ function network.stp.getTopologyTable()
     end
 end
 
-function network.stp.getInterfaces()
+function libLayer1network.stp.getInterfaces()
     if not driver.getTopologyTable then
         print("Layer1 Network demon not loaded.")
         return {}
@@ -53,7 +53,7 @@ end
 
 -- (I) ICMP - Internet Control and Management Protocol
 
-network.icmp = {}
+libLayer1network.icmp = {}
 internal.icmp = {
     logger = logging.getLogger("icmp")
 }
@@ -63,9 +63,9 @@ local pingid = 0
 --[[
     Send a layer 1 STP based ping frame.
  ]]
-function network.icmp.ping(sourceUUID, destinationUUID, payload)
+function libLayer1network.icmp.ping(destinationUUID, payload)
     pingid = pingid + 1
-    driver.sendFrame(sourceUUID, destinationUUID, "IP" .. computer.address() .. ":" .. tostring(pingid) .. ":" .. payload)
+    driver.sendFrame(destinationUUID, "IP" .. computer.address() .. ":" .. tostring(pingid) .. ":" .. payload)
     return pingid
 end
 
@@ -82,8 +82,8 @@ function internal.icmp.handle(sourceUUID, interfaceUUID, data)
             internal.icmp.logger.log("ICMP Echo reply from " .. sourceUUID .. ", id " .. id)
             computer.pushSignal("stp_ping_reply", sourceUUID, interfaceUUID, tonumber(id), payload)
         else
-            internal.icmp.logger.log("ICMP Echo request from " .. sourceUUID .. " to " .. interfaceUUID .. ", id " .. id)
-            driver.sendFrame(interfaceUUID, sourceUUID, data)
+            internal.icmp.logger.log("ICMP Echo request from " .. sourceUUID .. ", id " .. id)
+            driver.sendFrame(sourceUUID, data)
         end
     end
 end
@@ -106,10 +106,9 @@ end
 
  ]]
 
-network.inp = {}
+libLayer1network.inp = {}
 internal.inp = {
-    maxNameAge = 3600, -- amount of seconds to keep a name in the cache until it is deemed outdated
-    maxNameQueryWait = 30, -- amount of seconds to wait for a name query reply
+    maxNameAge = 3600,
     logger = logging.getLogger("inp"),
     nameTable = {}, -- mapping from "host.network" -> interfaceUUID
     interfaceTable = {}, -- mapping from interfaceUUID.["host.network"] -> existing
@@ -119,7 +118,7 @@ internal.inp = {
 --[[
     TODO
  ]]
-function network.inp.bindDomainName(domainName, interfaceUUID)
+function libLayer1network.inp.bindDomainName(domainName, interfaceUUID)
     if not internal.inp.nameTable[domainName] then
         internal.inp.nameTable[domainName] = {}
     end
@@ -128,20 +127,16 @@ function network.inp.bindDomainName(domainName, interfaceUUID)
         internal.inp.interfaceTable[interfaceUUID] = {}
     end
     internal.inp.interfaceTable[interfaceUUID][domainName] = {}
-    -- Add to local cache
-    network.inp.updateNameCache(domainName, interfaceUUID, true)
 end
 
 --[[
     TODO
  ]]
-function network.inp.removeInterface(interfaceUUID)
+function libLayer1network.inp.removeInterface(interfaceUUID)
     -- unbind all domains previously bound to this interface
     for domainName in pairs(internal.inp.interfaceTable[interfaceUUID]) do
         internal.inp.logger("Removing domain " .. domainName .. " from interface " .. interfaceUUID)
         internal.inp.nameTable[domainName] = nil
-        -- Also clear cache
-        internal.inp.nameCache[domainName] = nil
     end
     internal.inp.interfaceTable[interfaceUUID] = nil
 end
@@ -149,41 +144,26 @@ end
 --[[
     TODO
  ]]
-function network.inp.updateNameCache(domainName, interfaceUUID, authorative)
+function libLayer1network.inp.updateNameCache(domainName, interfaceUUID)
     internal.inp.nameCache[domainName] = {
         interface = interfaceUUID,
-        lastSeen = os.time(),
-        authorative = authorative
+        lastSeen = os.time()
     }
-end
-
---[[
-    TODO
- ]]
-function network.inp.getMaxCacheAge()
-    return internal.inp.maxNameAge
-end
-
---[[
-    TODO
- ]]
-function network.inp.getNameCache()
-    return internal.inp.nameCache
 end
 
 --[[
     TODO
     returns the found interfaceUUID or NIL in case none was found.
  ]]
-function network.inp.getInterfaceForDomainName(domainName)
+function libLayer1network.inp.getInterfaceForDomainName(domainName)
     if internal.inp.nameCache[domainName] then
-        if os.time() - internal.inp.nameCache[domainName].lastSeen < internal.inp.maxNameAge or internal.inp.nameCache[domainName].authorative then
+        if of.time() - internal.inp.nameCache[domainName].lastSeen < internal.inp.maxNameAge then
             -- return cached name
-            return internal.inp.nameCache[domainName].interface
+            return internal.inp.nameCache[domainName]
         end
     end
     -- try to resolve name
-    for destinationUUID, topologyEntry in pairs(network.stp.getTopologyTable()) do
+    for destinationUUID, topologyEntry in pairs(libLayer1network.stp.getTopologyTable()) do
         if topologyEntry.via ~= destinationUUID then -- don't send to self
             internal.inp.logger.log("INP Query for Name " .. domainName .. " to " .. destinationUUID)
             driver.sendFrame(destinationUUID, "NQ" .. domainName)
@@ -213,7 +193,7 @@ function internal.inp.handle(sourceUUID, interfaceUUID, data)
         local matcher = data:sub(3):gmatch("[^:]+")
         local domainName = matcher()
         local foundInterfaceUUID = matcher()
-        network.inp.updateNameCache(domainName, foundInterfaceUUID, false)
+        libLayer1network.inp.updateNameCache(domainName, foundInterfaceUUID)
         internal.icmp.logger.log("INP received name-found for " .. domainName .. " as " .. foundInterfaceUUID)
         computer.pushSignal("inp_name_found", domainName, foundInterfaceUUID)
     end
@@ -235,4 +215,4 @@ end)
 
 ------------
 
-return network
+return libLayer1network
