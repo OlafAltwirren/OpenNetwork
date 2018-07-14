@@ -271,7 +271,7 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
             -- we want to send directly
             if sourceUUID == destinationUUID then
                 -- Update statistics
-                driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
+                updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
                 -- Route data back to self
                 handle.debug("Sending data via loopback on " .. interfaceUUID)
                 handle.onReceiveFrame(sourceUUID, destinationUUID, ttl, data)
