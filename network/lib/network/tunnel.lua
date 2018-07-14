@@ -86,6 +86,22 @@ local function encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl, 
     return composedData
 end
 
+
+--[[
+    TODO
+ ]]
+local function decodePassThroughFrame(data)
+    --[ttl-byte][originalSourceUUID.len-byte][originalSourceUUID][destinationUUID.len-byte][destinationUUID]passThroughData
+
+    local ttl = data:byte(2)
+    local originalSourceUUID, originalSourceUUIDlen = readSizeStr(data, 3)
+    local destinationUUID, destinationUUIDlen = readSizeStr(data, 3 + originalSourceUUIDlen)
+    local passThroughData = data:sub(3 + originalSourceUUIDlen + destinationUUIDlen)
+
+    return originalSourceUUID, destinationUUID, ttl, passThroughData
+end
+
+
 -------------------------------------- API Implementations for the driver ---------------------------------------------
 
 --[[
@@ -136,20 +152,13 @@ end
 --[[
     TODO
  ]]
-function driver.updatePacketStats(interfaceUUID, pktIn, bytesIn, pktOut, bytesOut)
+local function updatePacketStats(interfaceUUID, pktIn, bytesIn, pktOut, bytesOut)
     interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + pktOut
     interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + bytesOut
     interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + pktIn
     interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + bytesIn
 end
 
---[[
-    TODO
- ]]
-function driver.rawSend(interfaceUUID, destinationUUID, data)
-    eventHnd.debug("RAW SEND on component:tunnel "..interfaceUUID)
-    component.invoke(interfaceUUID, "send", data)
-end
 
 --[[
     Handling all incoming modem_message events and decide that to do with them.
@@ -162,8 +171,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
 
     eventHnd.debug("Incoming tunneled frame on " .. interfaceUUID .. " from " .. partnerUUID)
 
-    interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + 1
-    interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + data:len()
+    updatePacketStats(interfaceUUID, 1, data:len(), 0, 0)
 
     if data:sub(1, 1) == "J" then
         -- Handle J/unicast -> Join message of an interface to the topology {sourceUUID}
@@ -173,7 +181,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         tunnelPartnerUUID = partnerUUID
 
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, "", interfaceUUID, "direct", os.time(), true)
+        eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, partnerUUID, interfaceUUID, "direct", os.time(), true)
     elseif data:sub(1, 1) == "B" then
         -- Handle B/unicast-> Beacon message, telling the others this interface is still there. {sourceUUID}
         eventHnd.debug("Beacon Message Received from " .. partnerUUID)
@@ -182,7 +190,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         tunnelPartnerUUID = partnerUUID
 
         -- Add new joined interface to own topology
-        eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, "", interfaceUUID, "direct", os.time(), true)
+        eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, partnerUUID, interfaceUUID, "direct", os.time(), false)
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
         eventHnd.debug("STTI Message Received from " .. partnerUUID)
@@ -208,57 +216,21 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         eventHnd.debug("Received pass-through on " .. interfaceUUID.. " from "..partnerUUID)
 
         -- Decode passthrough frame
-        local originalSourceUUID, destinationUUID, ttl, passThroughData = driver.decodePassThroughFrame(data)
-
-        -- in case we are the destination, give the data to the upper layer
-        if interfaces[destinationUUID] then
-            eventHnd.debug("PT Received data on " .. interfaceUUID.. " as pass-through from "..originalSourceUUID)
-            eventHnd.recvData(passThroughData, destinationUUID, originalSourceUUID)
-        end
+        local originalSourceUUID, destinationUUID, ttl, passThroughData = decodePassThroughFrame(data)
 
         -- in case the ttl has expored, drop that frame
         if ttl <= 0 then
-            eventHnd.debug("PT Pass Through TTL from " .. originalSourceUUID .. ", to " .. destinationUUID .. " has expired.")
+            eventHnd.debug("Pass Through TTL from " .. originalSourceUUID .. ", to " .. destinationUUID .. " has expired.")
             return
         end
 
-        -- Get the topology information for the destination
-        local topologyForDestination = eventHnd.getTopologyInformation(destinationUUID)
-        if not topologyForDestination then
-            -- Unknown destination, no knowledge where to send it to...
-            eventHnd.debug("PT Destination " .. destinationUUID .. " not known to this node. TODO")
-            return
-        else
-            if topologyForDestination.mode == "direct"  then -- WAS
-                -- we can directly send to the destination
-                eventHnd.debug("PT Pass Through sent on directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
-                -- sendDirect(eventHnd, topologyForDestination.via, destinationUUID, passThroughData)
-                eventHnd.sendPassThrough(topologyForDestination.via, destinationUUID, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
-            else
-                -- we have to pass the frame content on
-                eventHnd.debug("PT Pass Through sent on as pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
-                eventHnd.sendPassThrough(topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(originalSourceUUID, destinationUUID, ttl - 1, passThroughData))
-            end
-        end
+        eventHnd.onReceiveFrame(originalSourceUUID, destinationUUID, ttl, passThroughData)
     elseif data:sub(1, 1) == "D" then
         -- Handle D/unicast -> Direct Data for this interface. {sourceInterfaceUUID, destinationInterfaceUUID, data}
         eventHnd.debug("Received data on " .. interfaceUUID.. " from "..partnerUUID)
-        eventHnd.recvData(data:sub(2), interfaceUUID, partnerUUID)
+
+        eventHnd.onReceiveFrame(partnerUUID, interfaceUUID, nil, data:sub(2))
     end
-end
-
---[[
-    TODO
- ]]
-function driver.decodePassThroughFrame(data)
-    --[ttl-byte][originalSourceUUID.len-byte][originalSourceUUID][destinationUUID.len-byte][destinationUUID]passThroughData
-
-    local ttl = data:byte(2)
-    local originalSourceUUID, originalSourceUUIDlen = readSizeStr(data, 3)
-    local destinationUUID, destinationUUIDlen = readSizeStr(data, 3 + originalSourceUUIDlen)
-    local passThroughData = data:sub(3 + originalSourceUUIDlen + destinationUUIDlen)
-
-    return originalSourceUUID, destinationUUID, ttl, passThroughData
 end
 
 --[[
@@ -292,50 +264,32 @@ end
 
     handle:interface - the driver to be used for callbakcs
  ]]
-function driver.send(handle, interfaceUUID, destinationUUID, data)
+function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUID, destinationUUID, data, ttl)
     if interfaces[interfaceUUID] then
-        if interfaceUUID == destinationUUID then
-            -- Update statistics
-            interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + 1
-            interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + data:len()
-            interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + 1
-            interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + data:len()
-            -- Route data back to self
-            handle.recvData(data, interfaceUUID, destinationUUID)
-        else
-            -- Get the topology information for the destination
-            local topologyForDestination = handle.getTopologyInformation(destinationUUID)
-
-            if not topologyForDestination then
-                -- Unknown destination, no knowledge where to send it to...
-                handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
-                return
+        -- see wether we want to send direct
+        if interfaceUUID == sourceUUID and gatewayUUID == destinationUUID then
+            -- we want to send directly
+            if sourceUUID == destinationUUID then
+                -- Update statistics
+                driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
+                -- Route data back to self
+                handle.debug("Sending data via loopback on " .. interfaceUUID)
+                handle.onReceiveFrame(sourceUUID, destinationUUID, ttl, data)
             else
-                if topologyForDestination.mode == "direct" then --WAS  and topologyForDestination.via == interfaceUUID
-                    -- we can directly send to the destination
-                    handle.debug("Sending directly to " .. destinationUUID .. ", via " .. topologyForDestination.via)
-                    -- sendDirect(handle, topologyForDestination.via, destinationUUID, data)
-                    handle.sendDirect(topologyForDestination.via, destinationUUID, data)
-                else
-                    -- we have to pass the frame content on
-                    handle.debug("Sending pass-through to " .. topologyForDestination.gateway .. ", via " .. topologyForDestination.via)
-                    handle.sendPassThrough(topologyForDestination.via, topologyForDestination.gateway, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
-                end
+                -- Update statistics
+                interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
+                -- Send data to destination via source
+                handle.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
+                component.invoke(interfaceUUID, "send", "D" .. data)
             end
-        end
-    else
-        -- not our driver handled interface, marshalling on
-        -- sending pass-through from this interface to the via of the destination
-        local topologyForDestination = handle.getTopologyInformation(destinationUUID)
-
-        if not topologyForDestination then
-            -- Unknown destination, no knowledge where to send it to...
-            handle.debug("Destination " .. destinationUUID .. " not known to this node. TODO")
-            return
         else
-            -- we have to pass the frame content on
-            handle.debug("Sending pass-through to " .. topologyForDestination.via.. ", via " .. interfaceUUID)
-            handle.sendPassThrough(interfaceUUID, topologyForDestination.via, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data))
+            -- we want to send via pass-through
+            local passThroughData = encodePassThroughFrame(sourceUUID, destinationUUID, ttl, data)
+            -- Update statistics
+            interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, passThroughData:len())
+            -- Send data to destination via source
+            handle.debug("Sending P data via " .. interfaceUUID .. " to " .. gatewayUUID..". PT from "..sourceUUID..", to "..destinationUUID)
+            component.invoke(interfaceUUID, "send", "P" .. passThroughData)
         end
     end
 end

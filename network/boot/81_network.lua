@@ -6,67 +6,7 @@ local logging = require("logging")
 
 ----------------------- new
 
---[[
-Throughts:
-
-    [Node2 (c)]---<0>---[(b) Node1 (a)] ~ ~ <2> ~ ~ [(d) Node3]
-
-    Node1:  a - wlan
-            b - tunnel
-    Node2:  c - tunnel
-    Node3:  d - wlan
-
-    Stp node1:
-        a: (via)
-            dest,   path,   gw
-            a,      0,      a,  loop <- self
-            d,      12,     ?,  direct <- via Join/Beacon
-        b:
-            c,      0,      ?,  direct <- via Join/Beacon
-            b,      0,      b,  loop <- self
-
-     Stp node2:
-        c:
-            a,      0,      b,  bridged <- via STTI
-            b,      0,      ?,  direct <- via Join/Beacon
-            c,      0,      c,  loop    <- self
-            d,      12,     b,  bridged <- via STTI
-
-     Stp node3:
-        d:
-            a,      12,     ?,  direct <- via Join/Beacon
-            b,      12,     a,  bridged <- via STTI
-            c,      12,     a,  bridged <- via STTI
-            d,      0,      d,  loop <- self
-
-     Sending Ping from c to a:
-         -> network.icmp.ping(sourceUUID as nil, destinationUUID as "a", "randomdata")
-            -> driver.sendFrame(sourceUUID as nil, destinationUUID as "a", "IPnode1:1:eandomdata")  <-- call 81_network driver
-                -> sendingInterfaceUUID = topologyTable["a"].via -> "c"
-                ->  interfaces["c"].driver.driver.send(interfaces["c"].handler, "c", "a", "IPnode1:1:eandomdata") -> calls on tunnel
-                    -> driver.send(81_network handler, interfaceUUID as "c", destinationUUID as "a", data as "IPnode1:1:eandomdata")
-                    -> c:a,0,b,bridged <- via STTI
-                        -> handle.sendPassThrough(topologyForDestination.via as "c", topologyForDestination.gateway as "b", encodePassThroughFrame(interfaceUUID as "c", destinationUUID as "a", ttlMax as 12, data as "IPnode1:1:eandomdata"))
-                            -> eventHandler.sendPassThrough(interfaceUUID as "c", destinationUUID as "b", data as "c:a:12:IPnode1:1:eandomdata")
-                                -> interfaces["c"].driver.driver.rawSend("c", "b", "Pc:a:12:IPnode1:1:eandomdata") <-- call on tunnel
-                                    -> driver.rawSend(interfaceUUID as "c", destinationUUID as "b", data as "Pc:a:12:IPnode1:1:eandomdata")
-     Receiving on node1:
-                                    <- driver.handleModemMessage(_, interfaceUUID as "b", partnerUUID as "c", _, _, data as "Pc:a:12:IPnode1:1:eandomdata")
-                                <- originalSourceUUID as "c", destinationUUID as "a", ttl as 12, passThroughData as "IPnode1:1:eandomdata"
-                                <- if interfaces[destinationUUID as "a"] then <- yes, owne by node1
-                                <- eventHnd.recvData(passThroughData as "IPnode1:1:eandomdata", destinationUUID as "a", originalSourceUUID as "c") <-- calls on 81_network
-                            <- eventHandler.recvData(data as "IPnode1:1:eandomdata", interfaceUUID as "a", sourceUUID as "c")
-                            <- computer.pushSignal("network_frame", sourceUUID as "c", interfaceUUID as "a", data as "IPnode1:1:eandomdata")
-                        <- internal.icmp.handle(sourceUUID as "c", interfaceUUID as "a", data as "IPnode1:1:eandomdata")
-                    <- driver.sendFrame(interfaceUUID as "a", sourceUUID as "c", data as "IPnode1:1:eandomdata") <-- call on 81_network
-            -> -> driver.sendFrame(sourceUUID as "a", destinationUUID as "c", "IPnode1:1:eandomdata")  <-- call 81_network driver
-                ->  interfaces["a"].driver.driver.send(interfaces["a"].handler, "a", "c", "IPnode1:1:eandomdata") -> calls on modem
-                    -> driver.send(81_network handler, interfaceUUID as "a", destinationUUID as "c", data as "IPnode1:1:eandomdata")
-                    -> b:c,0,?,direct <- via Join/Broadcast
-                        -> handle.sendPassThrough(interfaceUUID, topologyForDestination.via, encodePassThroughFrame(interfaceUUID, destinationUUID, ttlMax, data)) <-- calls on 81_network
-
- ]]
-
+local maxTtl = 16
 
 local interfaces = {}
 
@@ -99,13 +39,6 @@ topologyTable["destinationUUID2"] = {  destinationUUID:string - final destinatio
 }
 ]]
 
-
--- On new data for "destinationUUIDx" check:
---  first: if old is too old, remove
---  if newer then old and path cheaper, exchange else keep.
---  if older then new one, keep.
-
-
 -----------------------
 
 -- Method for sending data over the node
@@ -137,6 +70,49 @@ local function networkDriver()
 
     local computer = require("computer")
     local filesystem = require("filesystem")
+
+    --[[
+           This will select the appropriate driver for sending a frame via the given sourceUUID to the destinationUUID.
+
+           sourceUUID:string       - the interfaceUUID to send from. In case this is NIL, the interface is automatically selected.
+           destinationUUID:string  - the interfaceUUID of the destination to send the data to.
+           ttl:int                 - may be NIL for default or a given TTL to be used for sending
+           data:string             - the arbitrary data to send.
+        ]]
+    local sendFrame = function(originalSourceUUID, finalDestinationUUID, ttl, data)
+        if not ttl then
+            ttl = maxTtl
+        end
+        if not topologyTable[finalDestinationUUID] then
+            error("Destination unknown. Unable to send there.")
+        else
+            -- set correct sneder
+            local sendingInterfaceUUID
+            if originalSourceUUID then
+                if interfaces[originalSourceUUID] then
+                    sendingInterfaceUUID = originalSourceUUID
+                else
+                    -- sending as pass-through
+                    sendingInterfaceUUID = topologyTable[finalDestinationUUID].via
+                end
+            else
+                -- no sourceUUID given, try to select the appropriate one
+                sendingInterfaceUUID = topologyTable[finalDestinationUUID].via
+                originalSourceUUID = sendingInterfaceUUID
+            end
+
+            logger.log("Sending Frame from " .. originalSourceUUID .. " to " .. finalDestinationUUID .. "; protocol " .. data:sub(1, 1))
+
+            interfaces[sendingInterfaceUUID].driver.driver.sendFrameViaDriver(interfaces[sendingInterfaceUUID].handler, -- handler for callbacks / this one
+                sendingInterfaceUUID, -- interface where to send from ::gatewayUUID
+                topologyTable[finalDestinationUUID].gateway, -- final destinationUUID, the driver decided wether this is direct or needs to be routed
+                originalSourceUUID,
+                finalDestinationUUID,
+                data,
+                ttl)
+        end
+    end
+
 
     --DRIVER INIT
     logger.log("Loading drivers...")
@@ -192,13 +168,25 @@ local function networkDriver()
         --[[
             For the driver to register received data on a node. This is to be passed on to higher network layers.
 
-            data:string - the data that was sent to this interface.
-            interfaceUUID:string - the uuid of the receiving interface.
             sourceUUID:string - the original senter interfaceUUID that sent the data.
+            destinationUUID:string - the destinationUUID of the data.
+            ttl:int - the time to live of this data
+            data:string - the data that was received
           ]]
-        function eventHandler.recvData(data, interfaceUUID, sourceUUID)
-            -- logger.log("DEBUG: Received data on " .. interfaceUUID .. " from " .. sourceUUID)
-            computer.pushSignal("network_frame", sourceUUID, interfaceUUID, data)
+        function eventHandler.onReceiveFrame(sourceUUID, destinationUUID, ttl, data)
+            -- check wether this data is for us
+            if interfaces[destinationUUID] then
+                -- this data is for us
+                logger.log("Received frame from "..sourceUUID.." to "..destinationUUID)
+                computer.pushSignal("network_frame", sourceUUID, destinationUUID, data)
+            else
+                -- this data is to be send on
+                if not ttl then
+                    ttl = maxTtl
+                end
+                logger.log("Passing on frame from "..sourceUUID.." to "..destinationUUID..", "..tostring(ttl))
+                sendFrame(sourceUUID, destinationUUID, ttl-1, data)
+            end
         end
 
         --[[
@@ -212,69 +200,6 @@ local function networkDriver()
             -- TODO
             -- Remove destination as partingInterfaceUUID from topology
             -- Announce new topology
-        end
-
-        --[[
-            Returns the topology information of a known destinationUUID. This will also return NIL in case the destination
-            is not known.
-         ]]
-        function eventHandler.getTopologyInformation(destinationUUID)
-            return topologyTable[destinationUUID]
-        end
-
-
-        --[[
-            Internal method, handling sending of a frame from this interface to another, directly reachable interface.
-            TODO
-         ]]
-        function eventHandler.sendDirect(interfaceUUID, destinationUUID, data)
-            -- get interface, able to handle sending from interfaceUUID
-            if interfaces[interfaceUUID] then
-                if interfaceUUID == destinationUUID then
-                    -- Update statistics
-                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
-                    -- Route data back to self
-                    eventHandler.debug("Sending data via loopback on " .. interfaceUUID)
-                    eventHandler.recvData(data, destinationUUID, interfaceUUID)
-                else
-                    -- Update statistics
-                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
-                    -- Send data to destination via source
-                    eventHandler.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
-                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "D" .. data)
-                    -- component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "D" .. data)
-                end
-            end
-        end
-
-        --[[
-            Internal method, handling sending of pass-through frames, Those may be eigther that the destination isnt' the sending target or also when the sending source was not the original senderUUID.
-            TODO
-         ]]
-        function eventHandler.sendPassThrough(interfaceUUID, destinationUUID, data)
-            if interfaces[interfaceUUID] then
-                if interfaceUUID == destinationUUID then
-                    -- sending to own interface, yet need to decode pass-through correctly
-                    -- Update statistics
-                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
-
-                    -- TODO Here we send a pass-though to another destination, not necessarily get a passthough.
-
-                    -- Decode passthrough frame
-                    local originalSourceUUID, originalDestinationUUID, ttl, passThroughData = interfaces[interfaceUUID].driver.driver.decodePassThroughFrame(data)
-
-                    -- Route data back to self
-                    eventHandler.debug("Sending pass-through received data via loopback on " .. interfaceUUID)
-                    eventHandler.recvData(passThroughData, originalDestinationUUID, originalSourceUUID)
-                else
-                    -- Update statistics
-                    interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
-                    -- Send data to destination via source
-                    eventHandler.debug("Sending P data via " .. interfaceUUID .. " to " .. destinationUUID)
-                    interfaces[interfaceUUID].driver.driver.rawSend(interfaceUUID, destinationUUID, "P" .. data)
-                    -- component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "P" .. data)
-                end
-            end
         end
 
         --[[
@@ -316,7 +241,7 @@ local function networkDriver()
                         topologyTable[destinationUUID] = {
                             mode = "direct",
                             via = receiverInterfaceUUID,
-                            gateway = "",
+                            gateway = destinationUUID,
                             lastSeen = lastSeen,
                             pathCost = pathCost + distance,
                         }
@@ -340,7 +265,7 @@ local function networkDriver()
                     topologyTable[destinationUUID] = {
                         mode = "direct",
                         via = receiverInterfaceUUID,
-                        gateway = "",
+                        gateway = destinationUUID,
                         lastSeen = lastSeen,
                         pathCost = pathCost + distance,
                     }
@@ -382,34 +307,7 @@ local function networkDriver()
         drivers[file].handle = drivers[file].driver.start(eventHandler)
     end
 
-    --[[
-        This will select the appropriate driver for sending a frame via the given sourceUUID to the destinationUUID.
 
-        sourceUUID:string       - the interfaceUUID to send from. In case this is NIL, the interface is automatically selected.
-        destinationUUID:string  - the interfaceUUID of the destination to send the data to.
-        data:string             - the arbitrary data to send.
-     ]]
-    local sendFrame = function(sourceUUID, destinationUUID, data)
-        if not topologyTable[destinationUUID] then
-            error("Destination unknown. Unable to send there.")
-        else
-            local sendingInterfaceUUID
-            if sourceUUID then
-                sendingInterfaceUUID = sourceUUID
-                if not interfaces[sendingInterfaceUUID] then
-                    error("No local interface " .. sendingInterfaceUUID .. " on this node to send from.")
-                end
-            else
-                -- no sourceUUID given, try to select the appropriate one
-                sendingInterfaceUUID = topologyTable[destinationUUID].via
-            end
-            logger.log("Sending Frame from " .. sendingInterfaceUUID .. " to " .. destinationUUID .. "; protocol " .. data:sub(1, 1))
-            interfaces[sendingInterfaceUUID].driver.driver.send(interfaces[sendingInterfaceUUID].handler, -- handler for callbacks / this one
-                sendingInterfaceUUID, -- interface where to send from
-                destinationUUID, -- final destinationUUID, the driver decided wether this is direct or needs to be routed
-                data)
-        end
-    end
 
     getInterfaceInfo = function(interfaceUUID)
         if interfaces[interfaceUUID] then
@@ -425,7 +323,7 @@ local function networkDriver()
             topologyTable[interfaceUUID] = {
                 mode = "loop",
                 via = interfaceUUID,
-                gateway = "",
+                gateway = interfaceUUID,
                 lastSeen = os.time(),
                 pathCost = 0
             }
