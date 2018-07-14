@@ -83,7 +83,7 @@ function internal.icmp.handle(sourceUUID, interfaceUUID, data)
             computer.pushSignal("stp_ping_reply", sourceUUID, interfaceUUID, tonumber(id), payload)
         else
             internal.icmp.logger.log("ICMP Echo request from " .. sourceUUID .. " to " .. interfaceUUID .. ", id " .. id)
-            driver.sendFrame(interfaceUUID, sourceUUID, nil, data)
+            driver.sendFrame(nil, sourceUUID, nil, data)
         end
     end
 end
