@@ -65,7 +65,7 @@ local pingid = 0
  ]]
 function network.icmp.ping(sourceUUID, destinationUUID, payload)
     pingid = pingid + 1
-    driver.sendFrame(sourceUUID, destinationUUID, "IP" .. computer.address() .. ":" .. tostring(pingid) .. ":" .. payload)
+    driver.sendFrame(sourceUUID, destinationUUID, nil, "IP" .. computer.address() .. ":" .. tostring(pingid) .. ":" .. payload)
     return pingid
 end
 
@@ -83,7 +83,7 @@ function internal.icmp.handle(sourceUUID, interfaceUUID, data)
             computer.pushSignal("stp_ping_reply", sourceUUID, interfaceUUID, tonumber(id), payload)
         else
             internal.icmp.logger.log("ICMP Echo request from " .. sourceUUID .. " to " .. interfaceUUID .. ", id " .. id)
-            driver.sendFrame(interfaceUUID, sourceUUID, data)
+            driver.sendFrame(interfaceUUID, sourceUUID, nil, data)
         end
     end
 end
@@ -186,7 +186,7 @@ function network.inp.getInterfaceForDomainName(domainName)
     for destinationUUID, topologyEntry in pairs(network.stp.getTopologyTable()) do
         if topologyEntry.via ~= destinationUUID then -- don't send to self
             internal.inp.logger.log("INP Query for Name " .. domainName .. " to " .. destinationUUID)
-            driver.sendFrame(destinationUUID, "NQ" .. domainName)
+            driver.sendFrame(nil, destinationUUID, nil, "NQ" .. domainName)
         end
     end
     -- wait 10 seconds for a reply
@@ -207,7 +207,7 @@ function internal.inp.handle(sourceUUID, interfaceUUID, data)
         -- TODO currencly no wildcards. Only exact match.
         if internal.inp.nameTable[domainName] then
             internal.icmp.logger.log("INP Respond with name-found for " .. domainName .. " as " .. internal.inp.nameTable[domainName] .. " to " .. sourceUUID)
-            driver.sendFrame(sourceUUID, "NR" .. domainName .. ":" .. internal.inp.nameTable[domainName])
+            driver.sendFrame(nil, sourceUUID, nil, "NR" .. domainName .. ":" .. internal.inp.nameTable[domainName])
         end
     elseif data:sub(2, 2) == "R" then -- Response to name query
         local matcher = data:sub(3):gmatch("[^:]+")
