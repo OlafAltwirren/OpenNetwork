@@ -316,7 +316,7 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
                 handle.onReceiveFrame(sourceUUID, destinationUUID, ttl, data)
             else
                 -- Update statistics
-                interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
+                updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
                 -- Send data to destination via source
                 handle.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
                 component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "D" .. data)
@@ -325,7 +325,7 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
             -- we want to send via pass-through
             local passThroughData = encodePassThroughFrame(sourceUUID, destinationUUID, ttl, data)
             -- Update statistics
-            interfaces[interfaceUUID].driver.driver.updatePacketStats(interfaceUUID, 0, 0, 1, passThroughData:len())
+            updatePacketStats(interfaceUUID, 0, 0, 1, passThroughData:len())
             -- Send data to destination via source
             handle.debug("Sending P data via " .. interfaceUUID .. " to " .. gatewayUUID..". PT from "..sourceUUID..", to "..destinationUUID)
             component.invoke(interfaceUUID, "send", gatewayUUID, vLanId, "P" .. passThroughData)
