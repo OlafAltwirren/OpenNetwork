@@ -8,8 +8,5 @@ DESCRIPTION
   Sends special ping packet to remote host and waits for answer
   
 EXAMPLES
-  ping localhost
-    Pings self
-  
-  ping somehost
-    Sends ping to somehost
+  ping someotherhost.network
+    Sends ping to someotherhost.network

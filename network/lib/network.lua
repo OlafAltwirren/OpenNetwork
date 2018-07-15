@@ -219,6 +219,62 @@ function internal.inp.handle(sourceUUID, interfaceUUID, data)
     end
 end
 
+------------
+
+-- (U) UDP - User Datagram Protocol
+
+--[[
+    Definitions:
+
+ ]]
+
+network.udp = {}
+internal.udp = {
+    logger = logging.getLogger("udp"),
+    ports = {}
+}
+
+--[[
+    TODO
+ ]]
+function internal.udp.checkPortRange(port)
+    if port < 0 or port > 65535 then error("Incorrect Portnumber. Need to be in range 0..65535") end
+end
+
+--[[
+    TODO
+ ]]
+function network.udp.listen(port)
+    internal.udp.checkPortRange(port)
+    internal.udp.ports[port] = true
+end
+
+--[[
+    TODO
+ ]]
+function network.udp.close(port)
+    internal.udp.checkPortRange(port)
+    internal.udp.ports[port] = nil
+end
+
+--[[
+    TODO
+ ]]
+function network.udp.send(destinationUUID, port, data)
+    internal.udp.checkPortRange(port)
+    driver.sendFrame(nil, destinationUUID, nil, "U" .. string.char(math.floor(port / 256)) .. string.char(port % 256) .. data)
+end
+
+--[[
+    TODO
+ ]]
+function internal.udp.handle(sourceUUID, interfaceUUID, data)
+    local port = data:byte(2) * 256 + data:byte(3)
+    if internal.udp.ports[port] then
+        -- internal.udp.ports[port].callback(sourceUUID, port, data:sub(4))
+        computer.pushSignal("datagram", sourceUUID, port, data:sub(4))
+    end
+end
 
 ------------
 -- Data processing
@@ -229,7 +285,8 @@ event.listen("network_frame", function(_, sourceUUID, interfaceUUID, data)
         internal.icmp.handle(sourceUUID, interfaceUUID, data)
     elseif data:sub(1, 1) == "N" then
         internal.inp.handle(sourceUUID, interfaceUUID, data)
-        -- elseif data:sub(1,1) == "D" then internal.udp.handle(origin, data)
+    elseif data:sub(1, 1) == "U" then
+        internal.udp.handle(sourceUUID, interfaceUUID, data)
     end
 end)
 
