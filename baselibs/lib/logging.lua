@@ -145,14 +145,12 @@ function logging.getLogger(namedLogger)
     logging.core.init(namedLogger)
 
     -- Create the logger facility for the name
-    logging.core.loggers[namedLogger] = {
-        log = function(level, message)
-            if logLevels[level] >= logLevels[logging.core.loggers[namedLogger].loglevel] then
-                logging.logfiles[logging.core.loggers[namedLogger].filename]:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
-                -- WIll be done by timer logging.core.logFile:flush()
-            end
+    logging.core.loggers[namedLogger].log = function(level, message)
+        if logLevels[level] >= logLevels[logging.core.loggers[namedLogger].loglevel] then
+            logging.logfiles[logging.core.loggers[namedLogger].filename]:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
+            -- WIll be done by timer logging.core.logFile:flush()
         end
-    }
+    end
 
     -- Add proxy for TRACE
     if logLevels[logging.core.loggers[namedLogger].loglevel] > 0 then
