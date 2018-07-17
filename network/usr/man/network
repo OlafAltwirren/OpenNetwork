@@ -1,47 +1,117 @@
 NAME
-  network - Advanced self-routing API
-  
-METHODS
-  network.icmp.ping(addr, payload)
-    Sends ping message to addr, message will come back triggering
-    'ping_reply' event
+  network - Multi layer networking API and drivers.
 
-  network.ip.bind(addr)
-    Attaches addnitional address to this computer, useful for
-    core servers which addresses must me easisy rememberable
-    Address SOULD be up to 64 characters, allowed characters: a-zA-Z, '-'
-    
+LAYERS
+  Layer 0
+    The driver layer for components, enabling sending, receiving and spanning a networking based tree for all
+    participating interfaces. This layer will handle the encoding and decoding of data frames for the purpose of sending
+    direct data to another interface from this one, or to send pass-through frames originating not only from its own
+    interfaces to foreign ones. Handling of joining of interfaces as well as parting of those and management of keep-
+    alives of those interfaces is also part of layer 0. In case of a topology change detection the layer 1 tier is
+    notified.
+
+   Layer 1
+     The frame routing and basic management tier enables protocols like STP, ICMP, INP, UDP and TCP.
+
+      STP is the baselayer of the spanning tree protocol, enabling the interfaces to be aware of their surrounding
+     network topology.
+
+      ICMP is for controlling and management of the unique network nodes and their interfaces, broadcasting topology
+     information via STTI blocks to other interfaces and keeps track of outdated routes.
+
+      INP is the internet nameing protocol, responsible for discovering names hosts and networks if the participatnig
+     interfaces to make use of communication more user-friendly by assigning one or multiple hostnames to an interface.
+     This is only a facility used for more user-friendly accessing interfaces, but still will resolve to interfaceUUIDs
+     under the hood always.
+
+      UDP is the unbound user datagram protocol. This will allow an application to open a port for listening, receiving
+     an event with marker "datagram" on each packet received locally on the opened port or send a datagram packet to a
+     given foreign host. There is no ordering or loss-prevention of datagrams.
+
+      TCP TODO
+
+METHODS
+  network.stp.getTopologyTable()
+    Gets this nodes' current topology table that it is aware of at this given point in time. The table may change
+    its content at any given moment on changes of topology.
+
+    topologyTable["destinationUUID"]        - destinationUUID:string - final destination of the interfaceUUID
+      mode = "bridged",                     - "bridged","direct","loop"
+                                                - "bridged", when this interface is not directly reachable by this
+                                                  interface.
+                                                - "direct" when the destinationUUID is directly reachable via this
+                                                  interfaceUUID
+                                                - "loop" when this interface sends to itself only as a path
+      via = "sourceUUID",                   - via:string - the interfaceUUID through which the fame shall be sent to
+                                              reach  the destinationUUID. This interface needs to be local to this node.
+      gateway = "gatewayUUID",              - gateway:string - the interfaceUUID to which the frame shall be sent to
+                                              reach its final destination.
+      lastSeen = os.time(),                 - lastSeen:number - the systime when this destination was last seen alive.
+      pathCost = 429                        - pathCost:number - the path cost for this route to send frames to the
+                                              destination interface.
+
+  network.stp.getInterfaces()
+    Get the list of interfaces on this node. The list contains their type as well as callable layer 0 driver.
+
+    interfaces["sourceUUID"]                - sourceUUID:string - the interfaceUUID of the interface on the list.
+      type = "Ethenet",                     - type:string - the type of interface, depending on the driver type handling
+                                              this interface.
+      name = "eth0",                        - name:string - the name of this interface.
+      driver = drivers[file],               - driver:function - the drivers function structs for calling directly to
+                                              layer 0.
+      handler = layer1                      - handler:function - the eventHandler of the networkDriver used by the
+                                              componentDriver
+
+  network.icmp.ping(sourceUUID, destinationUUID, payload)
+    Sends ping frame to destinationUUID, message will come back triggering 'ping_reply' event on the sourceUUID
+    interface.
+
+  network.inp.bindDomainName(domainName, interfaceUUID)
+    TODO
+
   network.udp.open(port)
-    Starts listening on specified port, when data arrives at port "datagram"
-    event is triggered with origin, port, data parameters
- 
+    Starts listening on specified port, when data arrives at port "datagram" event is triggered with origin, port,
+    data parameters
+
   network.udp.close(port)
     Stops listening on specified port
 
-  network.udp.send(addr, port, data)
-    Sends data to specified host and port. Specified port MUST be open
-    on remote machine
+  network.udp.send(destinationUUID, port, data)
+    Sends data to specified destinationUUID and port. Specified port MUST be open on remote machine
 
   network.tcp.listen(port)
-    Starts listening at specified port. When connection arrives event
-    "tcp", "connection", channel, remoteaddr, port
+    Starts listening at specified port. When connection arrives event "tcp", "connection", channel, remoteaddr, port
     is trigerred
-    
+
   network.tcp.unlisten(port)
-    Stops listening on specified port. Note that all connections made to
-    this port will remain untouched
-    
-  network.tcp.open(addr, port)
-    Tries to open a new connection. Will trigger event
-    "tcp", "connection", channel, remoteaddr, port
-    When remote host accepted the connection
-    
+    Stops listening on specified port. Note that all connections made to this port will remain untouched
+
+  network.tcp.open(remoteUUID, port)
+    Tries to open a new connection. Will trigger event "tcp", "connection", channel, remoteaddr, port when remote
+    interface accepted the connection
+
   network.tcp.close(channel)
-    Closes earlier opened connection, will trigger
-    "tcp", "close", channel, remoteaddr, port
-    on remote side
-    
+    Closes earlier opened connection, will trigger "tcp", "close", channel, remoteaddr, port on remote side
+
   network.tcp.send(channel, data)
-    Sends data to other side, will trigger
-    "tcp", "message", ch, data, remoteaddr, port
-    event on remote side
+    Sends data to other side, will trigger "tcp", "message", ch, data, remoteaddr, port event on remote side
+
+
+SIGNALS
+  stp_ping_reply
+    sourceUUID:string, interfaceUUID:string, id:int, payload:string
+
+  datagram
+    sourceUUID:string, port:int, data:string
+
+  tcp
+    connection
+      ch:int, remoteInterfaceUUID:string, port:int
+    close
+      ch:int, remoteInterfaceUUID:string, port:int
+    message
+      ch:int  data:string, remoteInterfaceUUID:string, port:int
+
+
+
+

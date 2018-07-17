@@ -1,12 +1,12 @@
 NAME
-  ping - check if a host is reachable
-
+  stping - check if an interface is reachable
+  
 SYNOPSIS
-  ping [hostname] [--c= --count=[ping count]] [--s= --size=[data size]]
+  stping [address] [--c= --count=[ping count]] [--s= --size=[data size]]
   [--i= --interval=[seconds]] [--t= --droptime=[seconds]] [--v --verbose]
 
 DESCRIPTION
-  ping uses the ICMP protocol's mandatory ECHO_REQUEST frame to elicit an ICMP ECHO_RESPONSE from a host by its name.
+  stping uses the ICMP protocol's mandatory ECHO_REQUEST frame to elicit an ICMP ECHO_RESPONSE from an interface.
   ECHO_REQUEST frames (''pings'') have a sourceUUID and destinationUUID header, followed by a struct timeval and then
   an arbitrary number of ''pad'' bytes used to fill out the frame.
 
@@ -26,15 +26,15 @@ OPTIONS
   --v --verbose
     Output more details
 
-  When using ping for fault isolation, it should first be run on the local host, to verify that the local network
-  interface is up and running. Then, foreign hosts, that are directly reachable and then bridged ones further and
+  When using ping for fault isolation, it should first be run on the local interface, to verify that the local network
+  interface is up and running. Then, foreign interfaces, that are directly reachable and then bridged ones further and
   further away should be ''pinged''. Round-trip times and frame loss statistics are computed. If duplicate frames are
   received, they are not included in the frame loss calculation, although the round trip time of these frames is used
   in calculating the minimum/average/maximum round-trip time numbers. When the specified number of frames have been
   sent (and received) or if the program is terminated with a SIGINT, a brief summary is displayed. Shorter current
   statistics can be obtained without termination of process with signal SIGQUIT.
 
-  If ping does not receive any reply frames at all it will exit with code 1. If a frame count and deadline are both
+  If stping does not receive any reply frames at all it will exit with code 1. If a frame count and deadline are both
   specified, and fewer than count frames are received by the time the deadline has arrived, it will also exit with
   code 1. On other error it exits with code 2. Otherwise it exits with code 0. This makes it possible to use the exit
   code to see if a host is alive or not.
@@ -43,12 +43,12 @@ OPTIONS
   the network, it is unwise to use ping during normal operations or from automated scripts.
 
 EXAMPLES
-  ping somehost.network
-    Sends 6 ping frames to the interface resolved by INP for somehost.network
+  stping 87aadb93-7ef2-42a7-bc09-3c9d17fd2f0f
+    Sends 6 ping frames to 87aadb93-7ef2-42a7-bc09-3c9d17fd2f0f
 
   stping 87aadb93-7ef2-42a7-bc09-3c9d17fd2f0f --c=100 --s=1024 --v
-    Sends 100 ping frames to the interface resolved by INP for somehost.network with the size of each 1024 bytes and
-    prints out more verbose data.
+    Sends 100 ping frames to 87aadb93-7ef2-42a7-bc09-3c9d17fd2f0f with the size of each 1024 bytes and prints out
+    more verbose data.
 
 SEE ALSO
-  stp, ifconfig, stping, dig
+  stp, ifconfig, ping, dig

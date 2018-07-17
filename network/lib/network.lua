@@ -30,7 +30,10 @@ end
 network.stp = {}
 internal.stp = {}
 
-
+--[[
+    Gets this nodes' current topology table that it is aware of at this given point in time. The table may change
+    its content at any given moment on changes of topology.
+ ]]
 function network.stp.getTopologyTable()
     if not driver.getTopologyTable then
         print("Layer1 Network demon not loaded.")
@@ -40,6 +43,9 @@ function network.stp.getTopologyTable()
     end
 end
 
+--[[
+    Get the list of interfaces on this node. The list contains their type as well as callable layer 0 driver.
+ ]]
 function network.stp.getInterfaces()
     if not driver.getTopologyTable then
         print("Layer1 Network demon not loaded.")
@@ -61,7 +67,8 @@ internal.icmp = {
 local pingid = 0
 
 --[[
-    Send a layer 1 STP based ping frame.
+    Sends ping frame to destinationUUID, message will come back triggering 'ping_reply' event on the sourceUUID
+    interface.
  ]]
 function network.icmp.ping(sourceUUID, destinationUUID, payload)
     pingid = pingid + 1
@@ -242,26 +249,30 @@ function internal.udp.checkPortRange(port)
 end
 
 --[[
-    TODO
+    Starts listening on specified port, when data arrives at port "datagram" event is triggered with origin, port,
+    data parameters
  ]]
 function network.udp.listen(port)
     internal.udp.checkPortRange(port)
     internal.udp.ports[port] = true
+    internal.udp.logger.debug("Opened listening on port " .. port)
 end
 
 --[[
-    TODO
+    Stops listening on specified port
  ]]
 function network.udp.close(port)
     internal.udp.checkPortRange(port)
     internal.udp.ports[port] = nil
+    internal.udp.logger.debug("Closed listening on port " .. port)
 end
 
 --[[
-    TODO
+    Sends data to specified destinationUUID and port. Specified port MUST be open on remote machine
  ]]
 function network.udp.send(destinationUUID, port, data)
     internal.udp.checkPortRange(port)
+    internal.udp.logger.debug("Sending datagram to " .. destinationUUID .. ", port " .. port)
     -- Send from suitable source with default TTL
     driver.sendFrame(nil, destinationUUID, nil, "U" .. string.char(math.floor(port / 256)) .. string.char(port % 256) .. data)
 end
@@ -278,6 +289,175 @@ function internal.udp.handle(sourceUUID, interfaceUUID, data)
     end
 end
 
+-----------
+-- (T) TCP - Transmission Control Protocol
+
+--O[port,2B][openers channel,2B] --Try open connection
+--A[opened channel,2B][openers channel,2B] --Accept connection
+--R[openers channel,2B] --Reject connection i.e. closed port
+--C[remote channel,2B] --Close connection(user request or adta at closed/wrong channel)
+--D[remote channel,2B][data] --Data
+
+network.tcp = {}
+internal.tcp = {
+    logger = logging.getLogger("tcp"),
+    ports = {},
+    channels = {},
+    freeCh = 1
+}
+
+--[[
+    Starts listening at specified port. When connection arrives event "tcp", "connection", channel, remoteaddr, port
+    is trigerred
+ ]]
+function network.tcp.listen(port)
+    internal.udp.checkPortRange(port)
+    internal.tcp.ports[port] = true
+    internal.tcp.logger.debug("Opened listening on port " .. port)
+end
+
+--[[
+    Stops listening on specified port. Note that all connections made to this port will remain untouched
+ ]]
+function network.tcp.unlisten(port)
+    internal.udp.checkPortRange(port)
+    internal.tcp.ports[port] = nil
+    internal.tcp.logger.debug("Closed listening on port " .. port)
+end
+
+--[[
+    Tries to open a new connection. Will trigger event "tcp", "connection", channel, remoteaddr, port when remote
+    interface accepted the connection
+ ]]
+function network.tcp.open(remoteUUID, port)
+    internal.udp.checkPortRange(port)
+    local channel = internal.tcp.freeCh
+    if internal.tcp.channels[channel] and internal.tcp.channels[channel].next then
+        internal.tcp.freeCh = internal.tcp.channels[channel].next
+    else
+        internal.tcp.freeCh = #internal.tcp.channels + 2
+    end
+    -- mark openning
+    internal.tcp.channels[channel] = {
+        open = false,
+        waiting = true,
+        addr = addr,
+        port = port
+    }
+    internal.tcp.logger.debug("Opening connection communication port " .. port .. " with channel " .. channel)
+    driver.sendFrame(nil, addr, nil, "TO" .. string.char(math.floor(port / 256)) .. string.char(port % 256) .. string.char(math.floor(channel / 256)) .. string.char(channel % 256))
+    return channel
+end
+
+--[[
+    Closes earlier opened connection, will trigger "tcp", "close", channel, remoteaddr, port on remote side
+ ]]
+function network.tcp.close(channel)
+    if internal.tcp.channels[channel] then
+        if internal.tcp.channels[channel].open or internal.tcp.channels[channel].waiting then
+            internal.tcp.logger.debug("Closing connection with channel " .. channel)
+            driver.sendFrame(nil, internal.tcp.channels[channel].addr, nil, "TC" .. string.char(math.floor(internal.tcp.channels[channel].remote / 256)) .. string.char(internal.tcp.channels[channel].remote % 256))
+        else
+            internal.tcp.logger.warn("Unable to close channel " .. channel .. ". Eigther not opened fully or still in state waiting.")
+        end
+        internal.tcp.channels[channel] = { next = internal.tcp.freeCh }
+        internal.tcp.freeCh = channel
+        --computer.pushSignal("tcp_close", ch, internal.tcp.channels[ch].addr, internal.tcp.channels[ch].port)
+    else
+        internal.tcp.logger.warn("Unable to close channel " .. channel .. ". Not known to be open before.")
+    end
+end
+
+--[[
+    Sends data to other side, will trigger "tcp", "message", ch, data, remoteaddr, port event on remote side
+ ]]
+function network.tcp.send(channel, data)
+    if internal.tcp.channels[channel] and internal.tcp.channels[channel].open then
+        driver.sendFrame(nil, internal.tcp.channels[channel].addr, nil, "TD" .. string.char(math.floor(internal.tcp.channels[channel].remote / 256)) .. string.char(internal.tcp.channels[channel].remote % 256) .. data)
+        return true
+    else
+        internal.tcp.logger.warn("Unable to send on channel " .. channel .. ". Not opened for communication.")
+        return false
+    end
+end
+
+--[[
+    TODO
+ ]]
+function internal.tcp.handle(sourceUUID, interfaceUUID, data)
+    if data:sub(2, 2) == "O" then
+        local port = data:byte(3) * 256 + data:byte(4)
+        local rchan = data:byte(5) * 256 + data:byte(6)
+
+        internal.tcp.logger.debug("Open request from " .. sourceUUID .. ", port " .. port .. ", remote Channel " .. rchan)
+
+        if internal.tcp.ports[port] then
+            local ch = internal.tcp.freeCh
+            if internal.tcp.channels[ch] and internal.tcp.channels[ch].next then
+                internal.tcp.freeCh = internal.tcp.channels[ch].next
+            else
+                internal.tcp.freeCh = #internal.tcp.channels + 2
+            end
+            internal.tcp.channels[ch] = {
+                open = true,
+                remote = rchan,
+                addr = sourceUUID,
+                port = port
+            }
+            internal.tcp.logger.debug("Connection accepted for channel " .. ch .. ", remote Channel " .. rchan .. ", remote Interface " .. sourceUUID)
+            driver.sendFrame(nil, sourceUUID, nil, "TA" .. string.char(math.floor(ch / 256)) .. string.char(ch % 256) .. string.char(math.floor(rchan / 256)) .. string.char(rchan % 256))
+            computer.pushSignal("tcp", "connection", ch, internal.tcp.channels[ch].addr, internal.tcp.channels[ch].port)
+        else
+            internal.tcp.logger.debug("Connection rejected for remote Channel " .. rchan .. ", remote Interface " .. sourceUUID)
+            driver.sendFrame(nil, sourceUUID, nil, "TR" .. string.char(math.floor(rchan / 256)) .. string.char(rchan % 256))
+        end
+    elseif data:sub(2, 2) == "R" then
+        local ch = data:byte(3) * 256 + data:byte(4)
+
+        internal.tcp.logger.debug("Connection reject received from " .. sourceUUID .. ", channel" .. ch)
+
+        if internal.tcp.channels[ch] and internal.tcp.channels[ch].waiting then
+            internal.tcp.channels[ch] = { next = internal.tcp.freeCh }
+            internal.tcp.freeCh = ch
+        end
+    elseif data:sub(2, 2) == "A" then
+        local remote = data:byte(3) * 256 + data:byte(4)
+        local ch = data:byte(3) * 256 + data:byte(4)
+
+        internal.tcp.logger.debug("Connection accept received from " .. sourceUUID .. ", channel" .. ch .. ", remote Channel " .. remote)
+
+        if internal.tcp.channels[ch] and internal.tcp.channels[ch].waiting then
+            internal.tcp.channels[ch].waiting = nil
+            internal.tcp.channels[ch].open = true
+            internal.tcp.channels[ch].remote = remote
+            internal.tcp.logger.debug("Connection accepted for channel" .. ch .. ", remote interface " .. internal.tcp.channels[ch].addr .. ", port " .. internal.tcp.channels[ch].port)
+            computer.pushSignal("tcp", "connection", ch, internal.tcp.channels[ch].addr, internal.tcp.channels[ch].port)
+        end
+    elseif data:sub(2, 2) == "C" then
+        local ch = data:byte(3) * 256 + data:byte(4)
+
+        internal.tcp.logger.debug("Connection close received from " .. sourceUUID .. ", channel" .. ch)
+
+        if internal.tcp.channels[ch] and internal.tcp.channels[ch].open then
+            internal.tcp.channels[ch] = {
+                next = internal.tcp.freeCh
+            }
+            internal.tcp.freeCh = ch
+            internal.tcp.logger.debug("Connection closed for channel " .. ch)
+            computer.pushSignal("tcp", "close", ch, internal.tcp.channels[ch].addr, internal.tcp.channels[ch].port)
+        end
+    elseif data:sub(2, 2) == "D" then
+        local ch = data:byte(3) * 256 + data:byte(4)
+
+        internal.tcp.logger.debug("Incoming data for channel " .. ch)
+
+        if internal.tcp.channels[ch] and internal.tcp.channels[ch].open then
+            computer.pushSignal("tcp", "message", ch, data:sub(5), internal.tcp.channels[ch].addr, internal.tcp.channels[ch].port)
+        end
+    end
+end
+
+
 ------------
 -- Data processing
 
@@ -289,6 +469,8 @@ event.listen("network_frame", function(_, sourceUUID, interfaceUUID, data)
         internal.inp.handle(sourceUUID, interfaceUUID, data)
     elseif data:sub(1, 1) == "U" then
         internal.udp.handle(sourceUUID, interfaceUUID, data)
+    elseif data:sub(1, 1) == "T" then
+        internal.tcp.handle(sourceUUID, interfaceUUID, data)
     end
 end)
 
