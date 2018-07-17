@@ -125,8 +125,10 @@ function logging.core.init(namedLogger)
 
         -- Set loglevel or use default
         local logLevel = logging.config.rootlevel -- default
-        if logging.config.logLevels[namedLogger] and logging.config.logLevels[namedLogger].loglevel then
-            logLevel = getMaxLogLevel(logLevel, logging.config.logLevels[namedLogger].loglevel)
+        if logging.config.logLevels[namedLogger] then
+            if logging.config.logLevels[namedLogger].loglevel then
+                logLevel = getMaxLogLevel(logLevel, logging.config.logLevels[namedLogger].loglevel)
+            end
         end
         logging.core.loggers[namedLogger].loglevel = logLevel
 
