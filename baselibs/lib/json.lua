@@ -1,9 +1,23 @@
-local json = { _version = "0.1.1" }
+--[[
+    Library json
 
--------------------------------------------------------------------------------
--- Encode
--------------------------------------------------------------------------------
+    TODO
 
+    Requires:
+        - OpenComputers > 1.7
+        - OpenOS > 1.7
+
+    Author:
+        Olaf Altwirren ( olaf.altwirren@airflowrental.de )
+ ]]
+
+local json = {
+    _version = "0.1.1"
+}
+
+-------------------------------------- Internal Helpers for encoding ---------------------------------------------
+
+-- function prototype
 local encode
 
 local escape_char_map = {
@@ -106,15 +120,7 @@ encode = function(val, stack)
     error("unexpected type '" .. t .. "'")
 end
 
-
-function json.encode(val)
-    return (encode(val))
-end
-
-
--------------------------------------------------------------------------------
--- Decode
--------------------------------------------------------------------------------
+-------------------------------------- Internal Helpers for decoding ---------------------------------------------
 
 local parse
 
@@ -359,7 +365,18 @@ parse = function(str, idx)
     decode_error(str, idx, "unexpected character '" .. chr .. "'")
 end
 
+-------------------------------------- API Functions and Methods ---------------------------------------------
 
+--[[
+    TODO
+ ]]
+function json.encode(val)
+    return (encode(val))
+end
+
+--[[
+    TODO
+ ]]
 function json.decode(str)
     if type(str) ~= "string" then
         error("expected argument of type string, got " .. type(str))
@@ -372,5 +389,6 @@ function json.decode(str)
     return res
 end
 
+-------------------------------------- Library ---------------------------------------------
 
 return json

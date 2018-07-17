@@ -1,12 +1,25 @@
---
--- Created by IntelliJ IDEA.
--- User: FinFarenath
--- Date: 08.07.2018
--- Time: 14:20
--- To change this template use File | Settings | File Templates.
---
+--[[
+    Library logging
 
--- local filesystem = require("filesystem")
+    Provides basic and complex logging to a log facility. This can be a file as well as a configurable log level at
+    minimum.
+
+    Available log levels are in the following order TRACE, DEBUG, INFO, WARN, ERROR. Depending on the log level given
+    and the configured loglevel the log line will be written out to the configured file.
+
+    The configuration will be read from a JSON configuration file from "/etc/logging.json". If that file doesn't exist,
+    it will be created on first installation and startup for you to edit later.
+
+    Requires:
+        - fileconfig > 0.1
+        - OpenComputers > 1.7
+        - OpenOS > 1.7
+
+    Author:
+        Olaf Altwirren ( olaf.altwirren@airflowrental.de )
+ ]]
+
+-------------------------------------- Configuration and Structures ---------------------------------------------
 
 local fileconfig = require("fileconfig")
 
@@ -39,6 +52,7 @@ local loggerConfiguration = {
 
 -- prototype
 local logging = {
+    _version = "0.1",
     core = {
         loggers = {}
     },
@@ -46,6 +60,8 @@ local logging = {
     logfiles = {}, -- filehandles by namedLogger-name
     config = nil
 }
+
+-------------------------------------- Internal Helpers and Functions ---------------------------------------------
 
 local logLevels = {}
 logLevels["trace"] = 1
@@ -74,6 +90,8 @@ local function getMaxLogLevel(level1, level2)
     local numberLevelMin = math.max(numberLevel1, numberLevel2)
     return logLevelNames[numberLevelMin]
 end
+
+-------------------------------------- API Functions and Methods ---------------------------------------------
 
 --[[
     Initialize the logging framework
@@ -182,5 +200,6 @@ function logging.getLogger(namedLogger)
     return logging.core.loggers[namedLogger]
 end
 
+-------------------------------------- Library ---------------------------------------------
 
 return logging

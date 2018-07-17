@@ -1,29 +1,43 @@
-fileconfig = {}
+--[[
+    Library fileconfig
+
+    Loads configuration.
+    If file doesn't exist, creates new one with given defaultCfg
+
+    Example defaultCfg:
+
+    Variables in configuration can be then read by they names:
+
+    fileconfig = require("fileconfig")
+    configuration = fileconfig.loadConfig("filename.json", {
+        defaultElement = {
+            name = "value"
+        },
+        defaultArray = { "1", "2", "3" }
+    })
+
+    print(configuration["defaultElement"].name)
+
+    Results:
+        string "value"
+
+    Requires:
+        - json > 0.1.1
+        - OpenComputers > 1.7
+        - OpenOS > 1.7
+
+    Author:
+        Olaf Altwirren ( olaf.altwirren@airflowrental.de )
+ ]]
+
+fileconfig = {
+    _version = "0.1"
+}
+
 local filesystem = require("filesystem")
 local json = require("json")
 
---[[
-Loads configuration.<br>
-If file doesn't exist, creates new one with given defaultCfg<br>
-<p><b>Example defaultCfg:</b></p>
-<code>
-  defaultCfg = {
-    cfgString = "string value",
-    cfgArray = {"array0 value0", "array0 value1"}, {"array1 value0", "array1 value1"}
-  }
-</code>
-</p>
-Variables in configuration can be then read by they names:<p>
-<code>
-config = require("config")
-conf = config.loadConfig("filename.cfg", defaultCfg)
-print(conf["cfgString"])
-</code>
-<p>Results:<br>
-<i>string value</i>
-</p>
---]]
-
+-------------------------------------- Internal Helpers and Functions ---------------------------------------------
 
 --[[
     TODO
@@ -38,6 +52,8 @@ local function readAll(file)
         return nil
     end
 end
+
+-------------------------------------- API Functions and Methods ---------------------------------------------
 
 --[[
     TODO
@@ -87,5 +103,7 @@ function fileconfig.saveConfig(configFile, configurationTable)
     end
     return configurationTable
 end
+
+-------------------------------------- Library ---------------------------------------------
 
 return fileconfig
