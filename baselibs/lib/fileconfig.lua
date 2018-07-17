@@ -70,7 +70,7 @@ function fileconfig.loadConfig(configFileName, defaultConfigurationTable)
     if not filesystem.exists("/etc/" .. configFileName) then
         local rootDirectory = filesystem.get("/")
         if rootDirectory and not rootDirectory.isReadOnly() then
-            filesystem.makeDirectory("/etc")
+            if filesystem.makeDirectory then filesystem.makeDirectory("/etc") end
             local f = io.open("/etc/" .. configFileName, "w")
             if f then
                 f:write(json.encode(loadedConfigurationTable))
