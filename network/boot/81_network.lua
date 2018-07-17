@@ -116,7 +116,7 @@ local function initLayer1Driver()
 
     for file in filesystem.list("/lib/network") do
 
-        logger.log("Loading driver:" .. file)
+        logger.info("Loading driver:" .. file)
         drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
 
         local eventHandler = {} -- Event Handers for the drivers to enable communication to layer 1
