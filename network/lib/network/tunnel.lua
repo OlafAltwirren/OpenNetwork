@@ -167,7 +167,7 @@ end
 function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
     -- Not a known interface this message is from. Ignore it.
     if not interfaces[interfaceUUID] then
-        eventHnd.logger.trace("Incoming frame on " .. interfaceUUID .. " from " .. sourceUUID .. " not for known interfaces.")
+        eventHnd.logger.trace("Incoming frame on " .. interfaceUUID .. " from " .. partnerUUID .. " not for known interfaces.")
         return
     end
 
