@@ -110,7 +110,7 @@ function logging.core.init(namedLogger)
         end, math.huge)
     end
 
-    if logging.loggers[namedLogger] then
+    if logging.core.loggers[namedLogger] then
         return
     else
         -- Get namedLogger filename
