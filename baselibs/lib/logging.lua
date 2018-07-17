@@ -8,48 +8,175 @@
 
 -- local filesystem = require("filesystem")
 
-local logging = {}
+local fileconfig = require("fileconfig")
 
-logging.core = {}
-logging.core.initialized = false
+local loggerConfiguration = {
+    logfile = "/tmp/messages.log",
+    rootlevel = "debug",
+    loglevels = {
+        network = {
+            loglevel = "info",
+            logfile = "/tmp/network.log"
+        },
+        icmp = {
+            loglevel = "info",
+            logfile = "/tmp/network.log"
+        },
+        inp = {
+            loglevel = "info",
+            logfile = "/tmp/network.log"
+        },
+        udp = {
+            loglevel = "info",
+            logfile = "/tmp/network.log"
+        },
+        tcp = {
+            loglevel = "info",
+            logfile = "/tmp/network.log"
+        }
+    }
+}
 
-logging.core.loggers = {}
+-- prototype
+local logging = {
+    core = {
+        loggers = {}
+    },
+    loggers = {},
+    logfiles = {}, -- filehandles by namedLogger-name
+    config = nil
+}
 
-function logging.core.init()
-    if logging.core.initialized then
+local logLevels = {}
+logLevels["trace"] = 1
+logLevels["debug"] = 2
+logLevels["info"] = 3
+logLevels["warn"] = 4
+logLevels["error"] = 5
+
+local logLevelNames = {}
+logLevelNames[1] = "trace"
+logLevelNames[2] = "debug"
+logLevelNames[3] = "info"
+logLevelNames[4] = "warn"
+logLevelNames[5] = "error"
+
+local function getMinLogLevel(level1, level2)
+    local numberLevel1 = logLevels[level1]
+    local numberLevel2 = logLevels[level2]
+    local numberLevelMin = math.min(numberLevel1, numberLevel2)
+    return logLevelNames[numberLevelMin]
+end
+
+local function getMaxLogLevel(level1, level2)
+    local numberLevel1 = logLevels[level1]
+    local numberLevel2 = logLevels[level2]
+    local numberLevelMin = math.max(numberLevel1, numberLevel2)
+    return logLevelNames[numberLevelMin]
+end
+
+--[[
+    Initialize the logging framework
+ ]]
+function logging.core.init(namedLogger)
+    -- Initialize globally if not done already
+    if not logging.config then
+        logging.config = fileconfig.loadConfig("logging.json", loggerConfiguration)
+        -- start timer
+        event.timer(30, function()
+            for logfileName, logfileHandle in pairs(logging.logfiles) do
+                logfileHandle:flush()
+            end
+        end, math.huge)
+    end
+
+    if logging.loggers[namedLogger] then
         return
     else
-        -- filesystem.rename("/log.txt", "/log.old")
-        logging.core.initialized = true
-        logging.core.logFile = io.open("/tmp/log.txt", "w")
+        -- Get namedLogger filename
+        local logfileName = logging.config.logfile -- default
+        if logging.config.loglevels[namedLogger] then
+            logfileName = logging.config.loglevels[namedLogger].logfile
+        end
+        logging.core.loggers[namedLogger] = {
+            loggerName = namedLogger,
+            filename = logfileName
+        }
+
+        -- Set loglevel or use default
+        local logLevel = logging.config.rootlevel -- default
+        if logging.config.logLevels[namedLogger].loglevel then
+            logLevel = getMaxLogLevel(logLevel, logging.config.logLevels[namedLogger].loglevel)
+        end
+        logging.core.loggers[namedLogger].loglevel = logLevel
+
+        -- Open logfile if not already open
+        if not logging.logfiles[logfileName] then
+            logging.logfiles[logfileName] = io.open(logfileName, "w")
+        end
     end
 end
 
+--[[
+    Generates a logger proxy for the given logger name.
+ ]]
 function logging.getLogger(namedLogger)
-    logging.core.init()
+    -- Try to initialize if not already done
+    logging.core.init(namedLogger)
+
+    -- Create the logger facility for the name
     logging.core.loggers[namedLogger] = {
-        loggerName = namedLogger,
         log = function(level, message)
-            logging.core.logFile:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
-            logging.core.logFile:flush()
+            if logLevels[level] >= logLevels[logging.core.loggers[namedLogger].loglevel] then
+                logging.logfiles[logging.core.loggers[namedLogger].filename]:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
+                -- WIll be done by timer logging.core.logFile:flush()
+            end
         end
     }
-    -- Add proxies
-    logging.core.loggers[namedLogger].trace = function(message)
-        logging.core.loggers[namedLogger].log("trace", message)
+    -- Add proxy for TRACE
+    if logLevels[logging.core.loggers[namedLogger].loglevel] > 0 then
+        logging.core.loggers[namedLogger].trace = function(message)
+            logging.core.loggers[namedLogger].log("trace", message)
+        end
+    else
+        logging.core.loggers[namedLogger].trace = function() end
     end
-    logging.core.loggers[namedLogger].debug = function(message)
-        logging.core.loggers[namedLogger].log("debug", message)
+
+    -- Add proxy for DEBUG
+    if logLevels[logging.core.loggers[namedLogger].loglevel] > 1 then
+        logging.core.loggers[namedLogger].debug = function(message)
+            logging.core.loggers[namedLogger].log("debug", message)
+        end
+    else
+        logging.core.loggers[namedLogger].debug = function() end
     end
-    logging.core.loggers[namedLogger].info = function(message)
-        logging.core.loggers[namedLogger].log("info", message)
+
+    -- Add proxy for INFO
+    if logLevels[logging.core.loggers[namedLogger].loglevel] > 2 then
+        logging.core.loggers[namedLogger].info = function(message)
+            logging.core.loggers[namedLogger].log("info", message)
+        end
+    else
+        logging.core.loggers[namedLogger].info = function() end
     end
-    logging.core.loggers[namedLogger].warn = function(message)
-        logging.core.loggers[namedLogger].log("warn", message)
+
+    -- Add proxy for WARN
+    if logLevels[logging.core.loggers[namedLogger].loglevel] > 3 then
+        logging.core.loggers[namedLogger].warn = function(message)
+            logging.core.loggers[namedLogger].log("warn", message)
+        end
+    else
+        logging.core.loggers[namedLogger].warn = function() end
     end
-    logging.core.loggers[namedLogger].error = function(message)
-        logging.core.loggers[namedLogger].log("error", message)
-        error(message)
+
+    -- Add proxy for ERROR
+    if logLevels[logging.core.loggers[namedLogger].loglevel] > 4 then
+        logging.core.loggers[namedLogger].error = function(message)
+            logging.core.loggers[namedLogger].log("error", message)
+            error(message)
+        end
+    else
+        logging.core.loggers[namedLogger].error = function() end
     end
 
     return logging.core.loggers[namedLogger]
