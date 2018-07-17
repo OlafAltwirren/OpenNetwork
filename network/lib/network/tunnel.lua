@@ -17,23 +17,24 @@ local event = require "event"
 
 local ttlMax = 16
 
+-- This layer 0 driver's functions
 local driver = {}
 local interfaces = {}
+--[[
+    interfaces["interfaceUUID"] = {
+        name = "ethX",
+        pktIn = 0,
+        pktOut = 0,
+        bytesIn = 0,
+        bytesOut = 0
+    }
+]]
 
+-- This tunnel interfaces partner interfaceUUID
 local tunnelPartnerUUID = ""
 
--- Structure
---[[interfaces["interfaceUUID"] = {
-    name = "ethX",
-    pktIn = 0,
-    pktOut = 0,
-    bytesIn = 0,
-    bytesOut = 0
-}
-]]
+-- Reference to the Layer 1 eventHandler for callbacks
 local eventHnd
-
-
 
 ------------------------------- Internal functions -----------------------------
 
@@ -101,6 +102,15 @@ local function decodePassThroughFrame(data)
     return originalSourceUUID, destinationUUID, ttl, passThroughData
 end
 
+--[[
+    TODO
+ ]]
+local function updatePacketStats(interfaceUUID, pktIn, bytesIn, pktOut, bytesOut)
+    interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + pktOut
+    interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + bytesOut
+    interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + pktIn
+    interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + bytesIn
+end
 
 -------------------------------------- API Implementations for the driver ---------------------------------------------
 
@@ -139,7 +149,7 @@ function driver.start(layer1eventHandler)
     -- Refresh own interfaces periodically
     event.timer(60, function()
         for interfaceUUID in pairs(interfaces) do
-            eventHnd.debug("Sending beacon for " .. interfaceUUID)
+            eventHnd.logger.debug("Sending beacon for " .. interfaceUUID)
             component.invoke(interfaceUUID, "send", "B")
         end
     end, math.huge)
@@ -149,15 +159,6 @@ function driver.start(layer1eventHandler)
     return {}
 end
 
---[[
-    TODO
- ]]
-local function updatePacketStats(interfaceUUID, pktIn, bytesIn, pktOut, bytesOut)
-    interfaces[interfaceUUID].pktOut = interfaces[interfaceUUID].pktOut + pktOut
-    interfaces[interfaceUUID].bytesOut = interfaces[interfaceUUID].bytesOut + bytesOut
-    interfaces[interfaceUUID].pktIn = interfaces[interfaceUUID].pktIn + pktIn
-    interfaces[interfaceUUID].bytesIn = interfaces[interfaceUUID].bytesIn + bytesIn
-end
 
 
 --[[
@@ -166,16 +167,16 @@ end
 function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
     -- Not a known interface this message is from. Ignore it.
     if not interfaces[interfaceUUID] then
+        eventHnd.logger.trace("Incoming frame on " .. interfaceUUID .. " from " .. sourceUUID .. " not for known interfaces.")
         return
     end
 
-    eventHnd.debug("Incoming tunneled frame on " .. interfaceUUID .. " from " .. partnerUUID)
-
+    eventHnd.logger.trace("Incoming Frame on " .. interfaceUUID .. " from " .. partnerUUID)
     updatePacketStats(interfaceUUID, 1, data:len(), 0, 0)
 
     if data:sub(1, 1) == "J" then
         -- Handle J/unicast -> Join message of an interface to the topology {sourceUUID}
-        eventHnd.debug("Join Message Received from partner " .. partnerUUID)
+        eventHnd.logger.debug("Join Message Received from partner " .. partnerUUID)
 
         -- Set partner of tunnel
         tunnelPartnerUUID = partnerUUID
@@ -184,7 +185,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, partnerUUID, interfaceUUID, "direct", os.time(), true)
     elseif data:sub(1, 1) == "B" then
         -- Handle B/unicast-> Beacon message, telling the others this interface is still there. {sourceUUID}
-        eventHnd.debug("Beacon Message Received from " .. partnerUUID)
+        eventHnd.logger.debug("Beacon Message Received from " .. partnerUUID)
 
         -- Set partner of tunnel
         tunnelPartnerUUID = partnerUUID
@@ -193,7 +194,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         eventHnd.updateTopology(interfaceUUID, partnerUUID, 0, partnerUUID, 0, partnerUUID, interfaceUUID, "direct", os.time(), false)
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
-        eventHnd.debug("STTI Message Received from " .. partnerUUID)
+        eventHnd.logger.debug("STTI Message Received from " .. partnerUUID)
 
         local compountSTTI = data:sub(2)
         while compountSTTI:len() > 0 do
@@ -205,7 +206,7 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         end
     elseif data:sub(1, 1) == "L" then
         -- Handle L/unicast -> Leave message of an interface from the topology {sourceInterfaceUUID}
-        eventHnd.debug("Leave Message Received from " .. partnerUUID)
+        eventHnd.logger.debug("Leave Message Received from " .. partnerUUID)
 
         -- Remove partner of tunnel
         tunnelPartnerUUID = ""
@@ -213,21 +214,21 @@ function driver.handleModemMessage(_, interfaceUUID, partnerUUID, _, _, data)
         eventHnd.partFromTopology(interfaceUUID, partnerUUID)
     elseif data:sub(1, 1) == "P" then
         -- Handle P/unicast -> Passthrough message of a Frame to be passed on {sourceInterfaceUUID, senderInterfaceUUID, destinationUUID, ttl, data}
-        eventHnd.debug("Received pass-through on " .. interfaceUUID.. " from "..partnerUUID)
+        eventHnd.logger.debug("Received pass-through on " .. interfaceUUID.. " from "..partnerUUID)
 
         -- Decode passthrough frame
         local originalSourceUUID, destinationUUID, ttl, passThroughData = decodePassThroughFrame(data)
 
         -- in case the ttl has expored, drop that frame
         if ttl <= 0 then
-            eventHnd.debug("Pass Through TTL from " .. originalSourceUUID .. ", to " .. destinationUUID .. " has expired.")
+            eventHnd.logger.debug("Pass Through TTL from " .. originalSourceUUID .. ", to " .. destinationUUID .. " has expired.")
             return
         end
 
         eventHnd.onReceiveFrame(originalSourceUUID, destinationUUID, ttl, passThroughData)
     elseif data:sub(1, 1) == "D" then
         -- Handle D/unicast -> Direct Data for this interface. {sourceInterfaceUUID, destinationInterfaceUUID, data}
-        eventHnd.debug("Received data on " .. interfaceUUID.. " from "..partnerUUID)
+        eventHnd.logger.debug("Received data on " .. interfaceUUID.. " from "..partnerUUID)
 
         eventHnd.onReceiveFrame(partnerUUID, interfaceUUID, nil, data:sub(2))
     end
@@ -273,13 +274,13 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
                 -- Update statistics
                 updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
                 -- Route data back to self
-                handle.debug("Sending data via loopback on " .. interfaceUUID)
+                handle.logger.debug("Sending data via loopback on " .. interfaceUUID)
                 handle.onReceiveFrame(sourceUUID, destinationUUID, ttl, data)
             else
                 -- Update statistics
                 updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
                 -- Send data to destination via source
-                handle.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
+                handle.logger.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
                 component.invoke(interfaceUUID, "send", "D" .. data)
             end
         else
@@ -288,7 +289,7 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
             -- Update statistics
             updatePacketStats(interfaceUUID, 0, 0, 1, passThroughData:len())
             -- Send data to destination via source
-            handle.debug("Sending P data via " .. interfaceUUID .. " to " .. gatewayUUID..". PT from "..sourceUUID..", to "..destinationUUID)
+            handle.logger.debug("Sending P data via " .. interfaceUUID .. " to " .. gatewayUUID..". PT from "..sourceUUID..", to "..destinationUUID)
             component.invoke(interfaceUUID, "send", "P" .. passThroughData)
         end
     end

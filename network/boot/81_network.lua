@@ -9,49 +9,43 @@ local logging = require("logging")
 local maxTtl = 16
 
 local interfaces = {}
-
---[[interfaces["sourceUUID"] = {}
-interfaces["sourceUUID"].type = "Ethenet"
-interfaces["sourceUUID"].name = "eth0"
-interfaces["sourceUUID"].driver = nil -- drivers[file]
-interfaces["sourceUUID"].handler = this drivers handler
+--[[
+    interfaces["sourceUUID"] = {
+        type = "Ethenet",
+        name = "eth0",
+        driver = drivers[file],
+        handler = the eventHandler of the networkDriver used by the componentDriver
 ]]
 
 local topologyTable = {}
+--[[
+    topologyTable["destinationUUID2"] = {  destinationUUID:string - final destination of the interfaceUUID
+        mode = "bridged", - "bridged","direct","loop" - "bridged", when this interfaceis not directly reachable by this interface. "direct" when the destinationUUID is directly reachable via this interfaceUUID
+        via = "sourceUUID", - via:string - the interfaceUUID through which the fame shall be sent to reach  the destinationUUID. This interface needs to be local to this node.
+        gateway = "gatewayUUID", gateway:string - the interfaceUUID to which the frame shall be sent to reach its final destination.
+        lastSeen = os.time(),
+        pathCost = 429
+ ]]
+
 local topologyTableUpdated = false
 
--- Directly accessible. Send Frame via "sourceUUID" to "destinationUUID"
---[[topologyTable["destinationUUID"] = {
-    mode = "direct",
-    via = "sourceUUID",
-    lastSeen = os.time(),
-    pathCost = 10,
-    gateway = ""
-}
-
--- Accessible via gateway. Send Frame via "sourceUUID" to "gatewayUUID" as routed Frame with destination "destinationUUID2"
-topologyTable["destinationUUID2"] = {  destinationUUID:string - final destination of the interfaceUUID
-    mode = "bridged", - "bridged","direct","loop" - "bridged", when this interfaceis not directly reachable by this interface. "direct" when the destinationUUID is directly reachable via this interfaceUUID
-    via = "sourceUUID", - via:string - the interfaceUUID through which the fame shall be sent to reach  the destinationUUID. This interface needs to be local to this node.
-    gateway = "gatewayUUID", gateway:string - the interfaceUUID to which the frame shall be sent to reach its final destination.
-    lastSeen = os.time(),
-    pathCost = 429
-}
-]]
 
 -----------------------
-
--- Method for sending data over the node
 
 local getInterfaceInfo
 
 local startNetwork
 
-------------------------
+--[[
+    Returns the structure of this node's topology table.
+ ]]
 local function getTopologyTable()
     return topologyTable
 end
 
+--[[
+    Returns this node's list of known interfaces.
+ ]]
 local function getInterfaces()
     return interfaces
 end
@@ -59,14 +53,14 @@ end
 ------------------------
 -- Layer 1
 
-local initiated = false
+local initialized = false
 
-local function networkDriver()
-    if initiated then
-        logger.log("Layer 1 Stack already initiated.")
+local function initLayer1Driver()
+    if initialized then
+        logger.info("Layer 1 stack already initiated.")
         return
     end
-    initiated = true
+    initialized = true
 
     local computer = require("computer")
     local filesystem = require("filesystem")
@@ -84,7 +78,7 @@ local function networkDriver()
             ttl = maxTtl
         end
         if not topologyTable[finalDestinationUUID] then
-            error("Destination unknown. Unable to send there.")
+            logger.error("Destination unknown. Unable to send there.")
         else
             -- set correct sneder
             local sendingInterfaceUUID
@@ -101,7 +95,7 @@ local function networkDriver()
                 originalSourceUUID = sendingInterfaceUUID
             end
 
-            logger.log("Sending Frame from " .. originalSourceUUID .. " to " .. finalDestinationUUID .. "; protocol " .. data:sub(1, 1))
+            logger.debug("Sending Frame from " .. originalSourceUUID .. " to " .. finalDestinationUUID .. "; protocol " .. data:sub(1, 1))
 
             interfaces[sendingInterfaceUUID].driver.driver.sendFrameViaDriver(interfaces[sendingInterfaceUUID].handler, -- handler for callbacks / this one
                 sendingInterfaceUUID, -- interface where to send from ::gatewayUUID
@@ -114,8 +108,8 @@ local function networkDriver()
     end
 
 
-    --DRIVER INIT
-    logger.log("Loading drivers...")
+    -- Layer 0 driver init
+    logger.info("Loading drivers...")
 
     -- Contains the library collection of the available drivers by name. drivers.[name]...
     local drivers = {}
@@ -125,10 +119,9 @@ local function networkDriver()
         logger.log("Loading driver:" .. file)
         drivers[file] = { driver = loadfile("/lib/network/" .. file)() }
 
-        local eventHandler = {} -- Event Handers for the drivers to enable uplayer communication
+        local eventHandler = {} -- Event Handers for the drivers to enable communication to layer 1
 
-        eventHandler.debug = logging.getLogger(file).log -- DEBUG ENABLED
-        -- eventHandler.debug = function()end
+        eventHandler.logger = logging.getLogger(file)
 
         --[[
             For the driver to register a new interface upon detection
@@ -138,7 +131,7 @@ local function networkDriver()
             type:string - the type of connection this interface represents, like Ethernet, Tunnel
           ]]
         function eventHandler.interfaceUp(name, sourceUUID, type)
-            logger.log("New interface: " .. name .. ", " .. sourceUUID .. ", " .. type)
+            logger.info("New interface: " .. name .. ", " .. sourceUUID .. ", " .. type)
             interfaces[sourceUUID] = {
                 type = type,
                 name = name,
@@ -177,14 +170,14 @@ local function networkDriver()
             -- check wether this data is for us
             if interfaces[destinationUUID] then
                 -- this data is for us
-                logger.log("Received frame from "..sourceUUID.." to "..destinationUUID)
+                logger.debug("Received frame from "..sourceUUID.." to "..destinationUUID)
                 computer.pushSignal("network_frame", sourceUUID, destinationUUID, data)
             else
                 -- this data is to be send on
                 if not ttl then
                     ttl = maxTtl
                 end
-                logger.log("Passing on frame from "..sourceUUID.." to "..destinationUUID..", "..tostring(ttl))
+                logger.debug("Passing on frame from "..sourceUUID.." to "..destinationUUID..", "..tostring(ttl))
                 sendFrame(sourceUUID, destinationUUID, ttl-1, data)
             end
         end
@@ -255,7 +248,7 @@ local function networkDriver()
                         }
                     end
 
-                    logger.log("Updating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
+                    logger.debug("Updating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
 
                     topologyTableUpdated = true
                 end
@@ -279,7 +272,7 @@ local function networkDriver()
                     }
                 end
 
-                logger.log("Adding new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
+                logger.debug("Adding new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type)
 
                 topologyTableUpdated = true
             end
@@ -297,7 +290,7 @@ local function networkDriver()
                 local args = { ... }
                 local res = { pcall(function() listener(table.unpack(args)) end) }
                 if not res[1] then
-                    logger.log("ERROR IN NET EVENTHANDLER[" .. file .. "]:" .. res[2])
+                    logger.error("ERROR IN NET EVENTHANDLER[" .. file .. "]:" .. res[2])
                 end
                 return table.unpack(res, 2)
             end)
@@ -307,14 +300,14 @@ local function networkDriver()
         drivers[file].handle = drivers[file].driver.start(eventHandler)
     end
 
-
-
+    --[[
+        Return the interface statistics and information based on the interdaces UUID.
+     ]]
     getInterfaceInfo = function(interfaceUUID)
         if interfaces[interfaceUUID] then
             return interfaces[interfaceUUID].driver.info(interfaceUUID)
         end
     end
-
 
     -- Topology updating timertick
     event.timer(10, function()
@@ -332,18 +325,18 @@ local function networkDriver()
         -- Clear out all outdated topology information
         for destinationUUID in pairs(topologyTable) do
             if (os.time() - topologyTable[destinationUUID].lastSeen) > 16 * 600 then
-                logger.log("Discarding outdated topology entry for " .. destinationUUID)
+                logger.debug("Discarding outdated topology entry for " .. destinationUUID)
                 topologyTable[destinationUUID] = nil
                 topologyTableUpdated = true
             end
         end
 
         if topologyTableUpdated then
-            logger.log("Sending STTI because topology changed.")
+            logger.debug("Sending STTI because topology changed.")
             topologyTableUpdated = false
 
             for interfaceUUID in pairs(interfaces) do
-                -- logger.log("Sending STTI update on " .. interfaceUUID)
+                logger.trace("Sending STTI update on " .. interfaceUUID)
                 interfaces[interfaceUUID].driver.driver.sendSTTI(interfaceUUID, topologyTable)
             end
         end
@@ -354,13 +347,12 @@ local function networkDriver()
     network.core.setCallback("getInterfaces", getInterfaces)
     network.core.setCallback("sendFrame", sendFrame)
 
-    logger.log("Layer 1 Networking stack initiated.")
+    logger.info("Layer 1 Networking stack initiated.")
     -- startNetwork()
-    computer.pushSignal("network_ready") -- maybe L1_ready
+    computer.pushSignal("network_ready")
 end
-
 
 ------------------------
 
 -- On initialization start the network
-event.listen("init", networkDriver)
+event.listen("init", initLayer1Driver)

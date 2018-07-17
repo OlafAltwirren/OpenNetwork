@@ -29,11 +29,29 @@ function logging.getLogger(namedLogger)
     logging.core.init()
     logging.core.loggers[namedLogger] = {
         loggerName = namedLogger,
-        log = function(message)
-            logging.core.logFile:write(os.date() .. " - " .. namedLogger .. " - " .. message .. "\n")
+        log = function(level, message)
+            logging.core.logFile:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
             logging.core.logFile:flush()
         end
     }
+    -- Add proxies
+    logging.core.loggers[namedLogger].trace = function(message)
+        logging.core.loggers[namedLogger].log("trace", message)
+    end
+    logging.core.loggers[namedLogger].debug = function(message)
+        logging.core.loggers[namedLogger].log("debug", message)
+    end
+    logging.core.loggers[namedLogger].info = function(message)
+        logging.core.loggers[namedLogger].log("info", message)
+    end
+    logging.core.loggers[namedLogger].warn = function(message)
+        logging.core.loggers[namedLogger].log("warn", message)
+    end
+    logging.core.loggers[namedLogger].error = function(message)
+        logging.core.loggers[namedLogger].log("error", message)
+        error(message)
+    end
+
     return logging.core.loggers[namedLogger]
 end
 

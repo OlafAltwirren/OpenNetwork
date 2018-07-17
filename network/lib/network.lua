@@ -79,10 +79,10 @@ function internal.icmp.handle(sourceUUID, interfaceUUID, data)
         local id = tonumber(matcher())
         local payload = matcher()
         if compid == computer.address() then
-            internal.icmp.logger.log("ICMP Echo reply from " .. sourceUUID .. ", id " .. id)
+            internal.icmp.logger.debug("ICMP Echo reply from " .. sourceUUID .. ", id " .. id)
             computer.pushSignal("stp_ping_reply", sourceUUID, interfaceUUID, tonumber(id), payload)
         else
-            internal.icmp.logger.log("ICMP Echo request from " .. sourceUUID .. " to " .. interfaceUUID .. ", id " .. id)
+            internal.icmp.logger.debug("ICMP Echo request from " .. sourceUUID .. " to " .. interfaceUUID .. ", id " .. id)
             driver.sendFrame(nil, sourceUUID, nil, data)
         end
     end
@@ -138,7 +138,7 @@ end
 function network.inp.removeInterface(interfaceUUID)
     -- unbind all domains previously bound to this interface
     for domainName in pairs(internal.inp.interfaceTable[interfaceUUID]) do
-        internal.inp.logger("Removing domain " .. domainName .. " from interface " .. interfaceUUID)
+        internal.inp.logger.debug("Removing domain " .. domainName .. " from interface " .. interfaceUUID)
         internal.inp.nameTable[domainName] = nil
         -- Also clear cache
         internal.inp.nameCache[domainName] = nil
@@ -185,7 +185,7 @@ function network.inp.getInterfaceForDomainName(domainName)
     -- try to resolve name
     for destinationUUID, topologyEntry in pairs(network.stp.getTopologyTable()) do
         if topologyEntry.via ~= destinationUUID then -- don't send to self
-            internal.inp.logger.log("INP Query for Name " .. domainName .. " to " .. destinationUUID)
+            internal.inp.logger.debug("INP Query for Name " .. domainName .. " to " .. destinationUUID)
             driver.sendFrame(nil, destinationUUID, nil, "NQ" .. domainName)
         end
     end
@@ -206,7 +206,7 @@ function internal.inp.handle(sourceUUID, interfaceUUID, data)
         local domainName = data:sub(3)
         -- TODO currencly no wildcards. Only exact match.
         if internal.inp.nameTable[domainName] then
-            internal.icmp.logger.log("INP Respond with name-found for " .. domainName .. " as " .. internal.inp.nameTable[domainName] .. " to " .. sourceUUID)
+            internal.icmp.logger.debug("INP Respond with name-found for " .. domainName .. " as " .. internal.inp.nameTable[domainName] .. " to " .. sourceUUID)
             driver.sendFrame(nil, sourceUUID, nil, "NR" .. domainName .. ":" .. internal.inp.nameTable[domainName])
         end
     elseif data:sub(2, 2) == "R" then -- Response to name query
@@ -214,7 +214,7 @@ function internal.inp.handle(sourceUUID, interfaceUUID, data)
         local domainName = matcher()
         local foundInterfaceUUID = matcher()
         network.inp.updateNameCache(domainName, foundInterfaceUUID, false)
-        internal.icmp.logger.log("INP received name-found for " .. domainName .. " as " .. foundInterfaceUUID)
+        internal.icmp.logger.debug("INP received name-found for " .. domainName .. " as " .. foundInterfaceUUID)
         computer.pushSignal("inp_name_found", domainName, foundInterfaceUUID)
     end
 end
@@ -238,7 +238,7 @@ internal.udp = {
     TODO
  ]]
 function internal.udp.checkPortRange(port)
-    if port < 0 or port > 65535 then error("Incorrect Portnumber. Need to be in range 0..65535") end
+    if port < 0 or port > 65535 then internal.udp.logger.error("Incorrect Portnumber. Need to be in range 0..65535") end
 end
 
 --[[
@@ -262,6 +262,7 @@ end
  ]]
 function network.udp.send(destinationUUID, port, data)
     internal.udp.checkPortRange(port)
+    -- Send from suitable source with default TTL
     driver.sendFrame(nil, destinationUUID, nil, "U" .. string.char(math.floor(port / 256)) .. string.char(port % 256) .. data)
 end
 
@@ -272,6 +273,7 @@ function internal.udp.handle(sourceUUID, interfaceUUID, data)
     local port = data:byte(2) * 256 + data:byte(3)
     if internal.udp.ports[port] then
         -- internal.udp.ports[port].callback(sourceUUID, port, data:sub(4))
+        internal.udp.logger.debug("Incoming datagram from " .. sourceUUID .. " to " .. interfaceUUID .. " on port " .. port)
         computer.pushSignal("datagram", sourceUUID, port, data:sub(4))
     end
 end
@@ -280,7 +282,7 @@ end
 -- Data processing
 
 event.listen("network_frame", function(_, sourceUUID, interfaceUUID, data)
-    internal.icmp.logger.log("Got network_frame from " .. sourceUUID .. ". Protocol " .. data:sub(1, 1))
+    internal.icmp.logger.debug("Got network_frame from " .. sourceUUID .. ". Protocol " .. data:sub(1, 1))
     if data:sub(1, 1) == "I" then
         internal.icmp.handle(sourceUUID, interfaceUUID, data)
     elseif data:sub(1, 1) == "N" then

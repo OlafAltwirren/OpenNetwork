@@ -12,26 +12,27 @@
 
  ]] --
 
-local component = require "component"
-local event = require "event"
+local component = require("component")
+local event = require("event")
 
 local vLanId = 2992
 
+-- This layer 0 driver's functions
 local driver = {}
+
 local interfaces = {}
-
--- Structure
---[[interfaces["interfaceUUID"] = {
-    name = "ethX",
-    pktIn = 0,
-    pktOut = 0,
-    bytesIn = 0,
-    bytesOut = 0
-}
+--[[
+    interfaces["interfaceUUID"] = {
+        name = "ethX",
+        pktIn = 0,
+        pktOut = 0,
+        bytesIn = 0,
+        bytesOut = 0
+    }
 ]]
+
+-- Reference to the Layer 1 eventHandler for callbacks
 local eventHnd
-
-
 
 ------------------------------- Internal functions -----------------------------
 
@@ -126,7 +127,7 @@ function driver.start(layer1eventHandler)
     -- Register event handler for kind of modem_message
     layer1eventHandler.setListener("modem_message", driver.handleModemMessage)
 
-    -- enumerate all interfaces for this driver and register them to L1
+    -- enumerate all interfaces for this driver and register them to Layer 1
     local ifNumber = 0
     for modemUUID in component.list("modem", true) do
         layer1eventHandler.interfaceUp("eth" .. tostring(ifNumber), modemUUID, "Ethernet")
@@ -151,7 +152,7 @@ function driver.start(layer1eventHandler)
     -- Refresh own interfaces periodically
     event.timer(60, function()
         for interfaceUUID in pairs(interfaces) do
-            eventHnd.debug("Broadcasting beacon for " .. interfaceUUID)
+            eventHnd.logger.debug("Broadcasting beacon for " .. interfaceUUID)
             component.invoke(interfaceUUID, "broadcast", vLanId, "B")
         end
     end, math.huge)
@@ -167,20 +168,21 @@ end
 function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance, data)
     -- Not a known interface this message is from. Ignore it.
     if not interfaces[interfaceUUID] then
+        eventHnd.logger.trace("Incoming frame on " .. interfaceUUID .. " from " .. sourceUUID .. " not for known interfaces.")
         return
     end
     -- Not the correct vLanId. Ignore it.
     if port ~= vLanId then
+        eventHnd.logger.trace("Incoming frame on " .. interfaceUUID .. " from " .. sourceUUID .. " not on correct vLanID " .. vLanId .. ", was on " .. port)
         return
     end
 
-    -- eventHnd.debug("Incoming Frame on " .. interfaceUUID .. " from " .. sourceUUID .. ", distance " .. distance)
-
+    eventHnd.logger.trace("Incoming Frame on " .. interfaceUUID .. " from " .. sourceUUID .. ", distance " .. distance)
     updatePacketStats(interfaceUUID, 1, data:len(), 0, 0)
 
     if data:sub(1, 1) == "J" then
         -- Handle J/broadcast -> Join message of an interface to the topology {sourceUUID}
-        eventHnd.debug("Join Message Received from " .. sourceUUID .. ", distance " .. distance)
+        eventHnd.logger.debug("Join Message Received from " .. sourceUUID .. ", distance " .. distance)
 
         local pathCost
         if (distance > 0) then
@@ -203,7 +205,7 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
             true) -- force an update, becasue a beacon refreshes the timestamp of this interface
     elseif data:sub(1, 1) == "B" then
         -- Handle B/broadcast -> Join message, telling the others this interface is still there. {sourceUUID}
-        eventHnd.debug("Beacon Message Received from " .. sourceUUID .. ", distance " .. distance)
+        eventHnd.logger.debug("Beacon Message Received from " .. sourceUUID .. ", distance " .. distance)
 
         local pathCost
         if (distance > 0) then
@@ -226,7 +228,7 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
             false) -- force an update, becasue a beacon refreshes the timestamp of this interface
     elseif data:sub(1, 1) == "T" then
         -- Handle T/unicast -> Publish of new STP topology table infos STTI. {sourceInterfaceUUID, distance, destinationUUID, pathCost, gatewayUUID, viaUUID, type}
-        eventHnd.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
+        eventHnd.logger.debug("STTI Message Received from " .. sourceUUID .. ", distance " .. distance)
 
         local pathCost
         if (distance > 0) then
@@ -247,18 +249,18 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
 
     elseif data:sub(1, 1) == "L" then
         -- Handle L/broadcast -> Leave message of an interface from the topology {sourceInterfaceUUID}
-        eventHnd.debug("Leave Message Received from " .. sourceUUID)
+        eventHnd.logger.debug("Leave Message Received from " .. sourceUUID)
         eventHnd.partFromTopology(interfaceUUID, sourceUUID)
     elseif data:sub(1, 1) == "P" then
         -- Handle P/unicast -> Passthrough message of a Frame to be passed on {sourceInterfaceUUID, senderInterfaceUUID, destinationUUID, ttl, data}
-        eventHnd.debug("Received pass-through on " .. interfaceUUID .. " from " .. sourceUUID)
+        eventHnd.logger.debug("Received pass-through on " .. interfaceUUID .. " from " .. sourceUUID)
 
         -- Decode passthrough frame
         local originalSourceUUID, destinationUUID, ttl, passThroughData = decodePassThroughFrame(data)
 
         -- in case the ttl has expored, drop that frame
         if ttl <= 0 then
-            eventHnd.debug("Pass Through TTL frmo " .. originalSourceUUID .. ", to " .. destinationUUID .. " has expired.")
+            eventHnd.logger.debug("Pass Through TTL frmo " .. originalSourceUUID .. ", to " .. destinationUUID .. " has expired.")
             return
         end
 
@@ -266,7 +268,7 @@ function driver.handleModemMessage(_, interfaceUUID, sourceUUID, port, distance,
 
     elseif data:sub(1, 1) == "D" then
         -- Handle D/unicast -> Direct Data for this interface. {sourceInterfaceUUID, destinationInterfaceUUID, data}
-        eventHnd.debug("Received data on " .. interfaceUUID .. " from " .. sourceUUID)
+        eventHnd.logger.debug("Received data on " .. interfaceUUID .. " from " .. sourceUUID)
 
         eventHnd.onReceiveFrame(sourceUUID, interfaceUUID, nil, data:sub(2))
     end
@@ -312,13 +314,13 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
                 -- Update statistics
                 updatePacketStats(interfaceUUID, 1, data:len(), 1, data:len())
                 -- Route data back to self
-                handle.debug("Sending data via loopback on " .. interfaceUUID)
+                handle.logger.debug("Sending data via loopback on " .. interfaceUUID)
                 handle.onReceiveFrame(sourceUUID, destinationUUID, ttl, data)
             else
                 -- Update statistics
                 updatePacketStats(interfaceUUID, 0, 0, 1, data:len())
                 -- Send data to destination via source
-                handle.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
+                handle.logger.debug("Sending D data via " .. interfaceUUID .. " to " .. destinationUUID)
                 component.invoke(interfaceUUID, "send", destinationUUID, vLanId, "D" .. data)
             end
         else
@@ -327,7 +329,7 @@ function driver.sendFrameViaDriver(handle, interfaceUUID, gatewayUUID, sourceUUI
             -- Update statistics
             updatePacketStats(interfaceUUID, 0, 0, 1, passThroughData:len())
             -- Send data to destination via source
-            handle.debug("Sending P data via " .. interfaceUUID .. " to " .. gatewayUUID..". PT from "..sourceUUID..", to "..destinationUUID)
+            handle.logger.debug("Sending P data via " .. interfaceUUID .. " to " .. gatewayUUID .. ". PT from " .. sourceUUID .. ", to " .. destinationUUID)
             component.invoke(interfaceUUID, "send", gatewayUUID, vLanId, "P" .. passThroughData)
         end
     end

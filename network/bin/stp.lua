@@ -1,10 +1,3 @@
---
--- Created by IntelliJ IDEA.
--- User: FinFarenath
--- Date: 08.07.2018
--- Time: 12:27
--- To change this template use File | Settings | File Templates.
---
 
 local network = require("network")
 
