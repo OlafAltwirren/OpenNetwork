@@ -79,18 +79,42 @@ logLevelNames[3] = "info"
 logLevelNames[4] = "warn"
 logLevelNames[5] = "error"
 
+local function logName2level(name)
+    if not name then
+        return 5
+    else
+        if not logLevels[name] then
+            return 5
+        else
+            return logLevels[name]
+        end
+    end
+end
+
+local function logLevel2name(level)
+    if not level then
+        return "warn"
+    else
+        if not logLevelNames[level] then
+            return "warn"
+        else
+            return logLevelNames[level]
+        end
+    end
+end
+
 local function getMinLogLevel(level1, level2)
-    local numberLevel1 = logLevels[level1]
-    local numberLevel2 = logLevels[level2]
+    local numberLevel1 = logName2level(level1)
+    local numberLevel2 = logName2level(level2)
     local numberLevelMin = math.min(numberLevel1, numberLevel2)
-    return logLevelNames[numberLevelMin]
+    return logLevel2name(numberLevelMin)
 end
 
 local function getMaxLogLevel(level1, level2)
-    local numberLevel1 = logLevels[level1]
-    local numberLevel2 = logLevels[level2]
+    local numberLevel1 = logName2level(level1)
+    local numberLevel2 = logName2level(level2)
     local numberLevelMin = math.max(numberLevel1, numberLevel2)
-    return logLevelNames[numberLevelMin]
+    return logLevel2name(numberLevelMin)
 end
 
 -------------------------------------- API Functions and Methods ---------------------------------------------
@@ -151,14 +175,14 @@ function logging.getLogger(namedLogger)
 
     -- Create the logger facility for the name
     logging.core.loggers[namedLogger].log = function(level, message)
-        if logLevels[level] >= logLevels[logging.core.loggers[namedLogger].loglevel] then
+        if logName2level(level) >= logName2level(logging.core.loggers[namedLogger].loglevel) then
             logging.logfiles[logging.core.loggers[namedLogger].filename]:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
             -- WIll be done by timer logging.core.logFile:flush()
         end
     end
 
     -- Add proxy for TRACE
-    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 1 then
+    if logName2level(logging.core.loggers[namedLogger].loglevel) <= 1 then
         logging.core.loggers[namedLogger].trace = function(message)
             logging.core.loggers[namedLogger].log("trace", message)
         end
@@ -167,7 +191,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for DEBUG
-    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 2 then
+    if logName2level(logging.core.loggers[namedLogger].loglevel) <= 2 then
         logging.core.loggers[namedLogger].debug = function(message)
             logging.core.loggers[namedLogger].log("debug", message)
         end
@@ -176,7 +200,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for INFO
-    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 3 then
+    if logName2level(logging.core.loggers[namedLogger].loglevel) <= 3 then
         logging.core.loggers[namedLogger].info = function(message)
             logging.core.loggers[namedLogger].log("info", message)
         end
@@ -185,7 +209,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for WARN
-    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 4 then
+    if logName2level(logging.core.loggers[namedLogger].loglevel) <= 4 then
         logging.core.loggers[namedLogger].warn = function(message)
             logging.core.loggers[namedLogger].log("warn", message)
         end
@@ -194,7 +218,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for ERROR
-    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 5 then
+    if logName2level(logging.core.loggers[namedLogger].loglevel) <= 5 then
         logging.core.loggers[namedLogger].error = function(message)
             logging.core.loggers[namedLogger].log("error", message)
             error(message)
