@@ -96,6 +96,15 @@ end
 -------------------------------------- API Functions and Methods ---------------------------------------------
 
 --[[
+    TODO
+ ]]
+function logging.core.flushLogFiles()
+    for logfileName, logfileHandle in pairs(logging.logfiles) do
+        logfileHandle:flush()
+    end
+end
+
+--[[
     Initialize the logging framework
  ]]
 function logging.core.init(namedLogger)
@@ -103,11 +112,7 @@ function logging.core.init(namedLogger)
     if not logging.config then
         logging.config = fileconfig.loadConfig("logging.json", loggerConfiguration)
         -- start timer
-        event.timer(30, function()
-            for logfileName, logfileHandle in pairs(logging.logfiles) do
-                logfileHandle:flush()
-            end
-        end, math.huge)
+        event.timer(30, logging.core.flushLogFiles(), math.huge)
     end
 
     if logging.core.loggers[namedLogger] then
@@ -153,7 +158,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for TRACE
-    if logLevels[logging.core.loggers[namedLogger].loglevel] > 0 then
+    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 1 then
         logging.core.loggers[namedLogger].trace = function(message)
             logging.core.loggers[namedLogger].log("trace", message)
         end
@@ -162,7 +167,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for DEBUG
-    if logLevels[logging.core.loggers[namedLogger].loglevel] > 1 then
+    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 2 then
         logging.core.loggers[namedLogger].debug = function(message)
             logging.core.loggers[namedLogger].log("debug", message)
         end
@@ -171,7 +176,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for INFO
-    if logLevels[logging.core.loggers[namedLogger].loglevel] > 2 then
+    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 3 then
         logging.core.loggers[namedLogger].info = function(message)
             logging.core.loggers[namedLogger].log("info", message)
         end
@@ -180,7 +185,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for WARN
-    if logLevels[logging.core.loggers[namedLogger].loglevel] > 3 then
+    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 4 then
         logging.core.loggers[namedLogger].warn = function(message)
             logging.core.loggers[namedLogger].log("warn", message)
         end
@@ -189,7 +194,7 @@ function logging.getLogger(namedLogger)
     end
 
     -- Add proxy for ERROR
-    if logLevels[logging.core.loggers[namedLogger].loglevel] > 4 then
+    if logLevels[logging.core.loggers[namedLogger].loglevel] <= 5 then
         logging.core.loggers[namedLogger].error = function(message)
             logging.core.loggers[namedLogger].log("error", message)
             error(message)
