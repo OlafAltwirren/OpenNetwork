@@ -11,6 +11,7 @@
     it will be created on first installation and startup for you to edit later.
 
     Requires:
+        - event
         - fileconfig > 0.1
         - OpenComputers > 1.7
         - OpenOS > 1.7
@@ -22,6 +23,7 @@
 -------------------------------------- Configuration and Structures ---------------------------------------------
 
 local fileconfig = require("fileconfig")
+local event = require("event")
 
 local loggerConfiguration = {
     logfile = "/tmp/messages.log",
