@@ -112,7 +112,7 @@ function logging.core.init(namedLogger)
     if not logging.config then
         logging.config = fileconfig.loadConfig("logging.json", loggerConfiguration)
         -- start timer
-        event.timer(30, logging.core.flushLogFiles(), math.huge)
+        event.timer(30, logging.core.flushLogFiles, math.huge)
     end
 
     if logging.core.loggers[namedLogger] then
