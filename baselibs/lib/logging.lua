@@ -175,6 +175,9 @@ function logging.getLogger(namedLogger)
 
     -- Create the logger facility for the name
     logging.core.loggers[namedLogger].log = function(level, message)
+        if not message then
+            message = ""
+        end
         if logName2level(level) >= logName2level(logging.core.loggers[namedLogger].loglevel) then
             logging.logfiles[logging.core.loggers[namedLogger].filename]:write(os.date() .. " - " .. level .. " - " .. namedLogger .. " - " .. message .. "\n")
             -- WIll be done by timer logging.core.logFile:flush()
