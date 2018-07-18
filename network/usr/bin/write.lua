@@ -27,12 +27,14 @@ end
 if port < 0 then
     error("Unspecified port")
 end
-if not listen and not hostname then
-    error("Unspecified hostname")
-else
-    addr = network.inp.getInterfaceForDomainName(hostname)
-    if not addr then
-        error("Unable to resolve hostname")
+if not listen then
+    if not hostname then
+        error("Unspecified hostname")
+    else
+        addr = network.inp.getInterfaceForDomainName(hostname)
+        if not addr then
+            error("Unable to resolve hostname")
+        end
     end
 end
 
