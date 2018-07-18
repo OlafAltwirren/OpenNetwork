@@ -15,7 +15,7 @@
 local component = require "component"
 local event = require "event"
 
-local ttlMax = 16
+local beaconIntervall = 60
 
 -- This layer 0 driver's functions
 local driver = {}
@@ -147,7 +147,7 @@ function driver.start(layer1eventHandler)
     end
 
     -- Refresh own interfaces periodically
-    event.timer(60, function()
+    event.timer(beaconIntervall, function()
         for interfaceUUID in pairs(interfaces) do
             eventHnd.logger.debug("Sending beacon for " .. interfaceUUID)
             component.invoke(interfaceUUID, "send", "B")

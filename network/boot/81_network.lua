@@ -7,6 +7,8 @@ local logging = require("logging")
 ----------------------- new
 
 local maxTtl = 16
+local sttiDiscardAge = 5 * 60 * 20 -- minutes x seconds x ticks
+local sttiUpdateIntervall = 60 -- seconds between checking and sending topology updates
 
 local interfaces = {}
 --[[
@@ -310,7 +312,7 @@ local function initLayer1Driver()
     end
 
     -- Topology updating timertick
-    event.timer(10, function()
+    event.timer(sttiUpdateIntervall, function()
         -- Update loopback interfaces' last seen time
         for interfaceUUID in pairs(interfaces) do
             topologyTable[interfaceUUID] = {
@@ -324,7 +326,7 @@ local function initLayer1Driver()
 
         -- Clear out all outdated topology information
         for destinationUUID in pairs(topologyTable) do
-            if (os.time() - topologyTable[destinationUUID].lastSeen) > 16 * 600 then
+            if (os.time() - topologyTable[destinationUUID].lastSeen) > sttiDiscardAge then
                 logger.debug("Discarding outdated topology entry for " .. destinationUUID)
                 topologyTable[destinationUUID] = nil
                 topologyTableUpdated = true
