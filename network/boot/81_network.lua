@@ -7,7 +7,7 @@ local logging = require("logging")
 ----------------------- new
 
 local maxTtl = 16
-local sttiDiscardAge = 5 * 60 * 20 -- minutes x seconds x ticks
+local sttiDiscardAge = 72 * 60 * 5 -- special factor for os.time() x seconds x minutes
 local sttiUpdateIntervall = 60 -- seconds between checking and sending topology updates
 
 local interfaces = {}
@@ -228,31 +228,33 @@ local function initLayer1Driver()
 
             -- get existing entry from topology
             if topologyTable[destinationUUID] then
-                if topologyTable[destinationUUID].pathCost > pathCost + distance then
-                    -- Old path is more expensive, so update with new path
-                    local oldPathCost = topologyTable[destinationUUID].pathCost
+                if topologyTable[destinationUUID].lastSeen < lastSeen then
+                    if topologyTable[destinationUUID].pathCost >= pathCost + distance then
+                        -- Old path is more expensive, so update with new path
+                        local oldPathCost = topologyTable[destinationUUID].pathCost
 
-                    if destinationUUID == senderInterfaceUUID then
-                        topologyTable[destinationUUID] = {
-                            mode = "direct",
-                            via = receiverInterfaceUUID,
-                            gateway = destinationUUID,
-                            lastSeen = lastSeen,
-                            pathCost = pathCost + distance,
-                        }
-                    else
-                        topologyTable[destinationUUID] = {
-                            mode = "bridged",
-                            via = receiverInterfaceUUID,
-                            gateway = senderInterfaceUUID,
-                            lastSeen = lastSeen,
-                            pathCost = pathCost + distance,
-                        }
+                        if destinationUUID == senderInterfaceUUID then
+                            topologyTable[destinationUUID] = {
+                                mode = "direct",
+                                via = receiverInterfaceUUID,
+                                gateway = destinationUUID,
+                                lastSeen = lastSeen,
+                                pathCost = pathCost + distance,
+                            }
+                        else
+                            topologyTable[destinationUUID] = {
+                                mode = "bridged",
+                                via = receiverInterfaceUUID,
+                                gateway = senderInterfaceUUID,
+                                lastSeen = lastSeen,
+                                pathCost = pathCost + distance,
+                            }
+                        end
+
+                        logger.debug("Updating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
+
+                        topologyTableUpdated = true
                     end
-
-                    logger.debug("Updating new STTI: " .. destinationUUID .. ", " .. pathCost + distance .. ", " .. viaUUID .. "->" .. gatewayUUID .. ", " .. type .. ". Old path was" .. oldPathCost)
-
-                    topologyTableUpdated = true
                 end
             else
                 -- Add the destination to the table
