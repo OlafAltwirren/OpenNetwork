@@ -341,11 +341,11 @@ function network.tcp.open(remoteUUID, port)
     internal.tcp.channels[channel] = {
         open = false,
         waiting = true,
-        addr = addr,
+        addr = remoteUUID,
         port = port
     }
     internal.tcp.logger.debug("Opening connection communication port " .. port .. " with channel " .. channel)
-    driver.sendFrame(nil, addr, nil, "TO" .. string.char(math.floor(port / 256)) .. string.char(port % 256) .. string.char(math.floor(channel / 256)) .. string.char(channel % 256))
+    driver.sendFrame(nil, remoteUUID, nil, "TO" .. string.char(math.floor(port / 256)) .. string.char(port % 256) .. string.char(math.floor(channel / 256)) .. string.char(channel % 256))
     return channel
 end
 

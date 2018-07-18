@@ -2,14 +2,14 @@ local network = require("network")
 local event = require("event")
 local term = require("term")
 
-local args = {...}
+local args = { ... }
 
 local listen = false
 local port = -1
 local hostname
 local addr
 
-for _,par in ipairs(args) do
+for _, par in ipairs(args) do
     if par == "-l" then
         listen = true
     elseif port < 1 then
@@ -22,22 +22,31 @@ for _,par in ipairs(args) do
     end
 end
 
+-- [-l] port [hostname]
+
 if port < 0 then
     error("Unspecified port")
 end
 if not listen and not hostname then
     error("Unspecified hostname")
-end
-addr = network.inp.getInterfaceForDomainName(hostname)
-if not addr then
-    error("Unable to resolve hostname")
+else
+    addr = network.inp.getInterfaceForDomainName(hostname)
+    if not addr then
+        error("Unable to resolve hostname")
+    end
 end
 
+print("====== Write 1.0 ======================")
+if listen then
+    print(" Listen on TODO:" .. tostring(port))
+else
+    print(" Connecting to " .. hostname .. ":" .. tostring(port))
+end
 
 local function handleTcp()
     local channel
     while true do
-        local e = {event.pull()}
+        local e = { event.pull() }
         if e[1] then
             if e[1] == "tcp" then
                 if e[2] == "connection" then
